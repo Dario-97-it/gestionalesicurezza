@@ -17,17 +17,17 @@ name = "securitytools-prod"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "securitytools-db"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "c810627c-82ee-4b37-9029-95aa27149879"
 
 # KV Namespace per sessioni
 [[env.production.kv_namespaces]]
 binding = "SESSIONS"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "b97eafd1cb55494f9d1bfa077ad377d2"
 
 # KV Namespace per abbonamenti
 [[env.production.kv_namespaces]]
 binding = "SUBSCRIPTIONS"
-id = "YOUR_SUBSCRIPTIONS_KV_ID"
+id = "a2dc8f3c360f482ca7a2265ead0bd4cb"
 
 # Environment variables
 [env.production.vars]
@@ -42,15 +42,15 @@ name = "securitytools-preview"
 [[env.preview.d1_databases]]
 binding = "DB"
 database_name = "securitytools-db"
-database_id = "YOUR_D1_DATABASE_ID"
+database_id = "c810627c-82ee-4b37-9029-95aa27149879"
 
 [[env.preview.kv_namespaces]]
 binding = "SESSIONS"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "b97eafd1cb55494f9d1bfa077ad377d2"
 
 [[env.preview.kv_namespaces]]
 binding = "SUBSCRIPTIONS"
-id = "YOUR_SUBSCRIPTIONS_KV_ID"
+id = "a2dc8f3c360f482ca7a2265ead0bd4cb"
 
 [env.preview.vars]
 ENVIRONMENT = "preview"
