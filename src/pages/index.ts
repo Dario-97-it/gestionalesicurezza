@@ -1,0 +1,10 @@
+export { default as Login } from './Login';
+export { default as Dashboard } from './Dashboard';
+export { default as Companies } from './Companies';
+export { default as Students } from './Students';
+export { default as Courses } from './Courses';
+export { default as Editions } from './Editions';
+export { default as Registrations } from './Registrations';
+export { default as Attendances } from './Attendances';
+export { default as Instructors } from './Instructors';
+export { default as Profile } from './Profile';
