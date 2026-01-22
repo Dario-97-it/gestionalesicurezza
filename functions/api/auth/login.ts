@@ -7,6 +7,7 @@ import { SignJWT } from 'jose';
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
+import bcryptjs from 'bcryptjs';
 
 interface Env {
   DB: D1Database;
@@ -20,18 +21,14 @@ interface LoginRequest {
   password: string;
 }
 
-// Semplice hash comparison (in produzione usare bcrypt via WebCrypto)
+// Verifica password usando bcryptjs
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  // Per Cloudflare Workers, usiamo Web Crypto API
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  // Compare with stored hash (assumendo che sia stato salvato con lo stesso metodo)
-  // In produzione, usare bcrypt o argon2
-  return hashHex === hash || password === hash; // Fallback per demo
+  try {
+    return await bcryptjs.compare(password, hash);
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return false;
+  }
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
