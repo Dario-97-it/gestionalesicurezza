@@ -19,6 +19,7 @@ import Certificates from './pages/Certificates';
 import Reports from './pages/Reports';
 import { EmailSettings } from './pages/EmailSettings';
 import CertificateNotifications from './pages/CertificateNotifications';
+import BatchRegistrations from './pages/BatchRegistrations';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -186,6 +187,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CertificateNotifications />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/registrations/batch"
+        element={
+          <ProtectedRoute>
+            <BatchRegistrations />
           </ProtectedRoute>
         }
       />

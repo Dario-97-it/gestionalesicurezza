@@ -6,9 +6,11 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState, Pagination } from '../components/ui/Table';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { registrationsApi, editionsApi, studentsApi, coursesApi } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
 import type { Registration, CourseEdition, Student, Course, PaginatedResponse } from '../types';
 
 export default function Registrations() {
+  const navigate = useNavigate();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [editions, setEditions] = useState<CourseEdition[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -199,9 +201,14 @@ export default function Registrations() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Iscrizioni</h1>
             <p className="text-gray-600 mt-1">Gestione delle iscrizioni ai corsi</p>
           </div>
-          <Button onClick={openCreateModal}>
-            + Nuova Iscrizione
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={openCreateModal}>
+              + Nuova Iscrizione
+            </Button>
+            <Button onClick={() => navigate('/registrations/batch')} className="bg-blue-600 hover:bg-blue-700">
+              📥 Importa Batch
+            </Button>
+          </div>
         </div>
 
         {/* Messages */}
