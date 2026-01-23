@@ -23,7 +23,7 @@ interface AuthContext {
 // GET - Lista iscrizioni con paginazione
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
-  const auth = (context as any).auth as AuthContext;
+  const auth = context.data.auth as AuthContext;
 
   if (!auth) {
     return new Response(JSON.stringify({ error: 'Non autenticato' }), {
@@ -107,7 +107,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 // POST - Crea nuova iscrizione (singola o multipla)
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
-  const auth = (context as any).auth as AuthContext;
+  const auth = context.data.auth as AuthContext;
 
   if (!auth) {
     return new Response(JSON.stringify({ error: 'Non autenticato' }), {

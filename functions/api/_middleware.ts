@@ -56,8 +56,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     const secret = new TextEncoder().encode(env.JWT_SECRET);
     const verified = await jwtVerify(token, secret);
     
-    // Passa il contesto autenticato al context
-    (context as any).auth = verified.payload as AuthContext;
+    // Passa il contesto autenticato attraverso context.data (metodo ufficiale Cloudflare)
+    context.data.auth = verified.payload as AuthContext;
 
     return context.next();
   } catch (error: any) {

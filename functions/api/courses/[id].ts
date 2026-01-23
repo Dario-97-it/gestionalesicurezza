@@ -23,7 +23,7 @@ interface AuthContext {
 // GET - Ottieni corso
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, params } = context;
-  const auth = (context as any).auth as AuthContext;
+  const auth = context.data.auth as AuthContext;
   const courseId = parseInt(params.id as string);
 
   if (!auth) {
@@ -77,7 +77,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 // PUT - Aggiorna corso
 export const onRequestPut: PagesFunction<Env> = async (context) => {
   const { request, env, params } = context;
-  const auth = (context as any).auth as AuthContext;
+  const auth = context.data.auth as AuthContext;
   const courseId = parseInt(params.id as string);
 
   if (!auth) {
@@ -168,7 +168,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 // DELETE - Elimina corso
 export const onRequestDelete: PagesFunction<Env> = async (context) => {
   const { env, params } = context;
-  const auth = (context as any).auth as AuthContext;
+  const auth = context.data.auth as AuthContext;
   const courseId = parseInt(params.id as string);
 
   if (!auth) {

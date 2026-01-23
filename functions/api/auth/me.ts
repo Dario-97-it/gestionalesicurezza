@@ -22,7 +22,7 @@ interface AuthContext {
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env } = context;
-  const auth = (context as any).auth as AuthContext;
+  const auth = context.data.auth as AuthContext;
 
   if (!auth) {
     return new Response(JSON.stringify({ error: 'Non autenticato' }), {
