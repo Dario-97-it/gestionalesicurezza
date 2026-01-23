@@ -155,7 +155,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const upcomingWithCount = await Promise.all(upcomingEditions.map(async (edition) => {
       const [count] = await db.select({ count: sql<number>`count(*)` })
         .from(schema.registrations)
-        .where(eq(schema.registrations.editionId, edition.id));
+        .where(eq(schema.registrations.courseEditionId, edition.id));
       
       return {
         ...edition,
@@ -196,13 +196,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       studentFirstName: schema.students.firstName,
       studentLastName: schema.students.lastName,
       courseTitle: schema.courses.title,
-      courseValidityMonths: schema.courses.validityMonths,
+      courseValidityMonths: schema.courses.certificateValidityMonths,
       editionEndDate: schema.courseEditions.endDate,
       companyName: schema.companies.name,
     })
     .from(schema.registrations)
     .innerJoin(schema.students, eq(schema.registrations.studentId, schema.students.id))
-    .innerJoin(schema.courseEditions, eq(schema.registrations.editionId, schema.courseEditions.id))
+    .innerJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
     .innerJoin(schema.courses, eq(schema.courseEditions.courseId, schema.courses.id))
     .leftJoin(schema.companies, eq(schema.students.companyId, schema.companies.id))
     .where(and(
@@ -307,7 +307,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     })
     .from(schema.registrations)
     .innerJoin(schema.students, eq(schema.registrations.studentId, schema.students.id))
-    .innerJoin(schema.courseEditions, eq(schema.registrations.editionId, schema.courseEditions.id))
+    .innerJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
     .innerJoin(schema.courses, eq(schema.courseEditions.courseId, schema.courses.id))
     .leftJoin(schema.companies, eq(schema.students.companyId, schema.companies.id))
     .where(eq(schema.registrations.clientId, auth.clientId))
