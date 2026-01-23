@@ -22,6 +22,7 @@ const EmailSettings = lazy(() => import('./pages/EmailSettings').then(m => ({ de
 const CertificateNotifications = lazy(() => import('./pages/CertificateNotifications'));
 const BatchRegistrations = lazy(() => import('./pages/BatchRegistrations'));
 const CalendarView = lazy(() => import('./pages/CalendarView'));
+const BatchImport = lazy(() => import('./pages/BatchImport'));
 
 // Loading component for Suspense fallback
 function PageLoader() {
@@ -205,15 +206,23 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/calendar"
-          element={
-            <ProtectedRoute>
-              <CalendarView />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute>
+            <CalendarView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/import"
+        element={
+          <ProtectedRoute>
+            <BatchImport />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );
