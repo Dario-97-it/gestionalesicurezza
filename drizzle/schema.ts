@@ -82,6 +82,7 @@ export const instructors = sqliteTable("instructors", {
   specialization: text("specialization"),
   hourlyRate: integer("hourlyRate"), // in centesimi
   notes: text("notes"),
+  isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => ({
@@ -130,6 +131,7 @@ export const courses = sqliteTable("courses", {
   defaultPrice: integer("defaultPrice").notNull(), // in centesimi
   description: text("description"),
   certificateValidityMonths: integer("certificateValidityMonths"),
+  minAttendancePercent: integer("minAttendancePercent").default(90), // Soglia minima frequenza %
   isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
@@ -143,21 +145,32 @@ export type InsertCourse = typeof courses.$inferInsert;
 
 /**
  * Course Editions table - Edizioni specifiche dei corsi (aule programmate)
+ * 
+ * Tipi di edizione:
+ * - public: Aperta a tutte le aziende (interaziendale)
+ * - private: Riservata a una sola azienda (dedicatedCompanyId)
+ * - multi: Riservata a più aziende specifiche (vedi editionAllowedCompanies)
  */
 export const courseEditions = sqliteTable("courseEditions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
   courseId: integer("courseId").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  startDate: text("startDate").notNull(), // YYYY-MM-DD
-  endDate: text("endDate").notNull(), // YYYY-MM-DD
+  // Tipo edizione: public (aperta a tutti), private (una azienda), multi (più aziende selezionate)
+  editionType: text("editionType", { enum: ["public", "private", "multi"] }).default("public").notNull(),
+  startDate: text("startDate").notNull(), // YYYY-MM-DD (prima sessione)
+  endDate: text("endDate").notNull(), // YYYY-MM-DD (ultima sessione)
   location: text("location").notNull(),
   instructorId: integer("instructorId").references(() => instructors.id, { onDelete: "set null" }),
   maxParticipants: integer("maxParticipants").notNull(),
-  price: integer("price").notNull(), // in centesimi
-  customPrice: integer("customPrice"),
+  price: integer("price").notNull(), // in centesimi (prezzo standard)
+  customPrice: integer("customPrice"), // prezzo personalizzato se diverso
+  // Per edizioni private: azienda dedicata
   dedicatedCompanyId: integer("dedicatedCompanyId").references(() => companies.id, { onDelete: "set null" }),
-  instructor: text("instructor"), // Nome docente (legacy)
+  instructor: text("instructor"), // Nome docente (legacy/backup)
   status: text("status", { enum: ["scheduled", "ongoing", "completed", "cancelled"] }).default("scheduled").notNull(),
+  notes: text("notes"),
+  // Flag per invio inviti calendario
+  calendarInviteSent: integer("calendarInviteSent", { mode: "boolean" }).default(false),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => ({
@@ -165,10 +178,58 @@ export const courseEditions = sqliteTable("courseEditions", {
   courseIdIdx: index("edition_courseId_idx").on(table.courseId),
   startDateIdx: index("edition_startDate_idx").on(table.startDate),
   statusIdx: index("edition_status_idx").on(table.status),
+  editionTypeIdx: index("edition_editionType_idx").on(table.editionType),
 }));
 
 export type CourseEdition = typeof courseEditions.$inferSelect;
 export type InsertCourseEdition = typeof courseEditions.$inferInsert;
+
+/**
+ * Edition Allowed Companies - Aziende autorizzate per edizioni "multi"
+ * Usato quando un'edizione è riservata a più aziende specifiche
+ */
+export const editionAllowedCompanies = sqliteTable("editionAllowedCompanies", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  editionId: integer("editionId").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
+  companyId: integer("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  editionIdIdx: index("eac_editionId_idx").on(table.editionId),
+  companyIdIdx: index("eac_companyId_idx").on(table.companyId),
+  uniqueEditionCompany: unique().on(table.editionId, table.companyId),
+}));
+
+export type EditionAllowedCompany = typeof editionAllowedCompanies.$inferSelect;
+export type InsertEditionAllowedCompany = typeof editionAllowedCompanies.$inferInsert;
+
+/**
+ * Edition Sessions table - Sessioni/giornate di un'edizione corso
+ * Un corso può essere suddiviso in più giornate con orari diversi
+ * Es: Corso 16 ore = 4 sessioni da 4 ore in giorni diversi
+ */
+export const editionSessions = sqliteTable("editionSessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  editionId: integer("editionId").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
+  sessionDate: text("sessionDate").notNull(), // YYYY-MM-DD
+  startTime: text("startTime").notNull(), // HH:MM (es. "09:00")
+  endTime: text("endTime").notNull(), // HH:MM (es. "13:00")
+  hours: integer("hours").notNull(), // Ore di questa sessione (es. 4)
+  location: text("location"), // Se diversa dalla location dell'edizione
+  notes: text("notes"),
+  // Tracking invito calendario
+  calendarEventId: text("calendarEventId"), // ID evento per aggiornamenti/cancellazioni
+  calendarInviteSentAt: text("calendarInviteSentAt"), // Quando è stato inviato l'invito
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  clientIdIdx: index("session_clientId_idx").on(table.clientId),
+  editionIdIdx: index("session_editionId_idx").on(table.editionId),
+  sessionDateIdx: index("session_sessionDate_idx").on(table.sessionDate),
+}));
+
+export type EditionSession = typeof editionSessions.$inferSelect;
+export type InsertEditionSession = typeof editionSessions.$inferInsert;
 
 /**
  * Registrations table - Iscrizioni studenti alle edizioni corsi
@@ -180,8 +241,13 @@ export const registrations = sqliteTable("registrations", {
   courseEditionId: integer("courseEditionId").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
   companyId: integer("companyId").references(() => companies.id, { onDelete: "set null" }),
   registrationDate: text("registrationDate").notNull().$defaultFn(() => new Date().toISOString()),
-  status: text("status", { enum: ["confirmed", "pending", "cancelled"] }).default("confirmed").notNull(),
+  status: text("status", { enum: ["confirmed", "pending", "cancelled", "completed"] }).default("confirmed").notNull(),
   priceApplied: integer("priceApplied").notNull(), // in centesimi
+  // Campi per tracking frequenza
+  totalHoursAttended: integer("totalHoursAttended").default(0), // Ore totali frequentate
+  attendancePercent: integer("attendancePercent").default(0), // Percentuale frequenza calcolata
+  certificateIssued: integer("certificateIssued", { mode: "boolean" }).default(false),
+  certificateIssuedAt: text("certificateIssuedAt"),
   notes: text("notes"),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
@@ -196,7 +262,42 @@ export type Registration = typeof registrations.$inferSelect;
 export type InsertRegistration = typeof registrations.$inferInsert;
 
 /**
- * Attendances table - Presenze giornaliere studenti alle lezioni
+ * Session Attendances table - Presenze per singola sessione
+ * L'operatore segna la presenza per ogni studente in ogni sessione
+ * 
+ * Flusso:
+ * 1. Durante il corso: studente firma registro cartaceo
+ * 2. Dopo: operatore trascrive le ore effettive
+ * 3. Sistema calcola automaticamente % frequenza
+ */
+export const sessionAttendances = sqliteTable("sessionAttendances", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  registrationId: integer("registrationId").notNull().references(() => registrations.id, { onDelete: "cascade" }),
+  sessionId: integer("sessionId").notNull().references(() => editionSessions.id, { onDelete: "cascade" }),
+  // Ore effettive frequentate (l'operatore inserisce le ore fatte)
+  hoursAttended: integer("hoursAttended").notNull().default(0),
+  // Status semplificato
+  status: text("status", { enum: ["present", "absent", "partial"] }).default("absent").notNull(),
+  notes: text("notes"),
+  // Chi ha registrato la presenza
+  recordedBy: integer("recordedBy").references(() => users.id, { onDelete: "set null" }),
+  recordedAt: text("recordedAt"),
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  clientIdIdx: index("satt_clientId_idx").on(table.clientId),
+  registrationIdIdx: index("satt_registrationId_idx").on(table.registrationId),
+  sessionIdIdx: index("satt_sessionId_idx").on(table.sessionId),
+  uniqueSessionAttendance: unique().on(table.registrationId, table.sessionId),
+}));
+
+export type SessionAttendance = typeof sessionAttendances.$inferSelect;
+export type InsertSessionAttendance = typeof sessionAttendances.$inferInsert;
+
+/**
+ * Attendances table - Presenze giornaliere studenti alle lezioni (LEGACY)
+ * Mantenuto per retrocompatibilità, usare sessionAttendances per nuove implementazioni
  */
 export const attendances = sqliteTable("attendances", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -206,6 +307,7 @@ export const attendances = sqliteTable("attendances", {
   courseEditionId: integer("courseEditionId").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
   attendanceDate: text("attendanceDate").notNull(), // YYYY-MM-DD
   status: text("status", { enum: ["present", "absent", "late", "justified"] }).default("present").notNull(),
+  hoursAttended: integer("hoursAttended"), // Ore effettive (nuovo campo)
   notes: text("notes"),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
@@ -218,6 +320,34 @@ export const attendances = sqliteTable("attendances", {
 
 export type Attendance = typeof attendances.$inferSelect;
 export type InsertAttendance = typeof attendances.$inferInsert;
+
+/**
+ * Calendar Invites Log - Log degli inviti calendario inviati
+ * Traccia tutti gli inviti inviati ai docenti
+ */
+export const calendarInvites = sqliteTable("calendarInvites", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  sessionId: integer("sessionId").notNull().references(() => editionSessions.id, { onDelete: "cascade" }),
+  instructorId: integer("instructorId").notNull().references(() => instructors.id, { onDelete: "cascade" }),
+  instructorEmail: text("instructorEmail").notNull(),
+  // Tipo di invito: create, update, cancel
+  inviteType: text("inviteType", { enum: ["create", "update", "cancel"] }).notNull(),
+  // UID univoco dell'evento (per aggiornamenti/cancellazioni)
+  eventUid: text("eventUid").notNull(),
+  // Stato invio
+  sentAt: text("sentAt").notNull().$defaultFn(() => new Date().toISOString()),
+  deliveryStatus: text("deliveryStatus", { enum: ["sent", "delivered", "failed"] }).default("sent"),
+  errorMessage: text("errorMessage"),
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  clientIdIdx: index("ci_clientId_idx").on(table.clientId),
+  sessionIdIdx: index("ci_sessionId_idx").on(table.sessionId),
+  instructorIdIdx: index("ci_instructorId_idx").on(table.instructorId),
+}));
+
+export type CalendarInvite = typeof calendarInvites.$inferSelect;
+export type InsertCalendarInvite = typeof calendarInvites.$inferInsert;
 
 /**
  * Invoices table - Log fatture generate
