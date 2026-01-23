@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState } from '../components/ui/Table';
 import { editionsApi, registrationsApi, coursesApi, studentsApi } from '../lib/api';
+import { exportAttendancePDF, exportAttendanceExcel } from '../lib/pdfExport';
 import type { CourseEdition, Registration, Course, Student } from '../types';
 
 interface EditionSession {
@@ -294,6 +295,27 @@ export default function Attendances() {
     return `${date} • ${session.startTime}-${session.endTime}`;
   };
 
+  const handleExportPDF = () => {
+    if (!selectedEdition || !selectedSession) return;
+    const edition = editions.find(e => e.id === selectedEdition);
+    const course = courses.find(c => c.id === edition?.courseId);
+    const session = sessions.find(s => s.id === selectedSession);
+    if (!edition || !course || !session) return;
+    const editionDate = edition.startDate ? new Date(edition.startDate).toLocaleDateString('it-IT') : '';
+    const sessionDate = new Date(session.date).toLocaleDateString('it-IT');
+    const sessionInfo = `${sessionDate} ${session.startTime}-${session.endTime}`;
+    exportAttendancePDF({
+      courseName: course.title,
+      editionDate,
+      sessionInfo,
+      instructor: 'Da compilare',
+      location: session.location || edition.location || 'Da compilare',
+      students: attendances,
+      totalHours,
+      totalSessionHours
+    });
+  };
+
   const presentCount = attendances.filter(a => a.present).length;
   const totalCount = attendances.length;
   const totalHours = attendances.reduce((sum, a) => sum + a.hoursAttended, 0);
@@ -391,12 +413,18 @@ export default function Attendances() {
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button onClick={markAllPresent} variant="secondary" disabled={isSaving || attendances.length === 0}>
                     ✅ Tutti Presenti
                   </Button>
                   <Button onClick={markAllAbsent} variant="secondary" disabled={isSaving || attendances.length === 0}>
                     ❌ Tutti Assenti
+                  </Button>
+                  <Button onClick={handleExportPDF} variant="secondary" disabled={attendances.length === 0}>
+                    📄 Esporta PDF
+                  </Button>
+                  <Button onClick={handleExportExcel} variant="secondary" disabled={attendances.length === 0}>
+                    📊 Esporta Excel
                   </Button>
                 </div>
               </div>
