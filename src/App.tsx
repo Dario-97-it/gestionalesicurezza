@@ -13,6 +13,8 @@ import {
   Instructors,
   Profile,
 } from './pages';
+import StudentDetail from './pages/StudentDetail';
+import CompanyDetail from './pages/CompanyDetail';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -80,10 +82,26 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/companies/:id"
+        element={
+          <ProtectedRoute>
+            <CompanyDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/students"
         element={
           <ProtectedRoute>
             <Students />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/students/:id"
+        element={
+          <ProtectedRoute>
+            <StudentDetail />
           </ProtectedRoute>
         }
       />

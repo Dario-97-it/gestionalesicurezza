@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -6,9 +7,11 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState, Pagination } from '../components/ui/Table';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { companiesApi } from '../lib/api';
-import type { Company, PaginatedResponse } from '../types';
+import { validaPIVA, normalizzaPIVA, formattaPIVA } from '../lib/partitaIva';
+import type { Company } from '../types';
 
 export default function Companies() {
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState('');
@@ -18,7 +21,9 @@ export default function Companies() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
+  
+  // Form state
   const [formData, setFormData] = useState({
     name: '',
     vatNumber: '',
@@ -27,6 +32,16 @@ export default function Companies() {
     address: '',
     contactPerson: '',
   });
+
+  // P.IVA validation state
+  const [pivaValidation, setPivaValidation] = useState<{
+    isValid: boolean;
+    isChecksumValid: boolean;
+    warnings: string[];
+    errors: string[];
+  } | null>(null);
+  const [duplicateCompany, setDuplicateCompany] = useState<{ id: number; name: string } | null>(null);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   // Fetch companies
   const fetchCompanies = useCallback(async (page = 1, searchTerm = '') => {
@@ -63,6 +78,52 @@ export default function Companies() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  // P.IVA validation
+  useEffect(() => {
+    const piva = formData.vatNumber;
+    if (!piva || piva.length < 11) {
+      setPivaValidation(null);
+      setDuplicateCompany(null);
+      return;
+    }
+
+    // Validate P.IVA
+    const validation = validaPIVA(piva);
+    setPivaValidation(validation);
+
+    // Check for duplicates (debounced)
+    if (validation.isValid) {
+      const checkDuplicate = async () => {
+        setIsCheckingDuplicate(true);
+        try {
+          const excludeId = selectedCompany?.id;
+          const normalizedPiva = normalizzaPIVA(piva);
+          const response = await fetch(
+            `/api/companies/check-duplicate?vatNumber=${encodeURIComponent(normalizedPiva)}${excludeId ? `&excludeId=${excludeId}` : ''}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+              }
+            }
+          );
+          const data = await response.json();
+          if (data.isDuplicate) {
+            setDuplicateCompany(data.existingCompany);
+          } else {
+            setDuplicateCompany(null);
+          }
+        } catch (err) {
+          console.error('Error checking duplicate:', err);
+        } finally {
+          setIsCheckingDuplicate(false);
+        }
+      };
+
+      const timer = setTimeout(checkDuplicate, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [formData.vatNumber, selectedCompany?.id]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
@@ -71,8 +132,7 @@ export default function Companies() {
     fetchCompanies(page, search);
   };
 
-  const openCreateModal = () => {
-    setSelectedCompany(null);
+  const resetForm = () => {
     setFormData({
       name: '',
       vatNumber: '',
@@ -81,6 +141,13 @@ export default function Companies() {
       address: '',
       contactPerson: '',
     });
+    setPivaValidation(null);
+    setDuplicateCompany(null);
+  };
+
+  const openCreateModal = () => {
+    setSelectedCompany(null);
+    resetForm();
     setIsModalOpen(true);
   };
 
@@ -102,15 +169,34 @@ export default function Companies() {
     setIsDeleteDialogOpen(true);
   };
 
+  const viewCompanyDetail = (company: Company) => {
+    navigate(`/companies/${company.id}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Warning if duplicate found
+    if (duplicateCompany) {
+      const confirmProceed = window.confirm(
+        `Attenzione: esiste già un'azienda con questa partita IVA (${duplicateCompany.name}). Vuoi continuare comunque?`
+      );
+      if (!confirmProceed) return;
+    }
+
     setIsSaving(true);
     try {
+      // Normalize P.IVA before saving
+      const dataToSave = {
+        ...formData,
+        vatNumber: formData.vatNumber ? normalizzaPIVA(formData.vatNumber) : '',
+      };
+
       if (selectedCompany) {
-        await companiesApi.update(selectedCompany.id, formData);
+        await companiesApi.update(selectedCompany.id, dataToSave);
         setMessage({ type: 'success', text: 'Azienda aggiornata con successo' });
       } else {
-        await companiesApi.create(formData);
+        await companiesApi.create(dataToSave);
         setMessage({ type: 'success', text: 'Azienda creata con successo' });
       }
       setIsModalOpen(false);
@@ -171,6 +257,15 @@ export default function Companies() {
     setTimeout(() => setMessage(null), 3000);
   };
 
+  // Get P.IVA input border color based on validation
+  const getPivaBorderClass = () => {
+    if (!pivaValidation) return '';
+    if (duplicateCompany) return 'border-orange-500 ring-1 ring-orange-500';
+    if (!pivaValidation.isChecksumValid) return 'border-yellow-500 ring-1 ring-yellow-500';
+    if (pivaValidation.isValid) return 'border-green-500 ring-1 ring-green-500';
+    return 'border-red-500 ring-1 ring-red-500';
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -192,7 +287,11 @@ export default function Companies() {
 
         {/* Messages */}
         {message && (
-          <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          <div className={`p-4 rounded-lg ${
+            message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 
+            message.type === 'warning' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+            'bg-red-50 text-red-700 border border-red-200'
+          }`}>
             {message.text}
           </div>
         )}
@@ -252,12 +351,19 @@ export default function Companies() {
                     {companies.map((company) => (
                       <TableRow key={company.id}>
                         <TableCell className="font-medium">{company.name}</TableCell>
-                        <TableCell>{company.vatNumber || '-'}</TableCell>
+                        <TableCell className="font-mono text-sm">{company.vatNumber || '-'}</TableCell>
                         <TableCell>{company.email || '-'}</TableCell>
                         <TableCell>{company.phone || '-'}</TableCell>
                         <TableCell>{company.contactPerson || '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => viewCompanyDetail(company)}
+                              className="p-1 text-gray-400 hover:text-green-600"
+                              title="Visualizza dettaglio"
+                            >
+                              👁️
+                            </button>
                             <button
                               onClick={() => openEditModal(company)}
                               className="p-1 text-gray-400 hover:text-blue-600"
@@ -309,6 +415,7 @@ export default function Companies() {
           <p className="text-sm text-gray-500 mb-4">
             {selectedCompany ? 'Modifica i dati dell\'azienda.' : 'Inserisci i dati della nuova azienda.'} I campi contrassegnati con * sono obbligatori.
           </p>
+
           <Input
             label="Nome Azienda *"
             name="name"
@@ -316,14 +423,47 @@ export default function Companies() {
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Partita IVA"
+
+          {/* Partita IVA with validation */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Partita IVA
+              {isCheckingDuplicate && <span className="ml-2 text-gray-400 text-xs">Verifica in corso...</span>}
+            </label>
+            <input
+              type="text"
               name="vatNumber"
-              maxLength={11}
+              maxLength={13}
               value={formData.vatNumber}
-              onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, vatNumber: e.target.value.replace(/[^0-9]/g, '') })}
+              placeholder="Es: 12345678901"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono ${getPivaBorderClass()}`}
             />
+            
+            {/* P.IVA Validation Messages */}
+            {pivaValidation && !pivaValidation.isChecksumValid && pivaValidation.isValid && (
+              <div className="mt-1 text-sm text-yellow-600 flex items-center gap-1">
+                ⚠️ Attenzione: checksum non valido
+              </div>
+            )}
+            {pivaValidation && pivaValidation.errors.length > 0 && (
+              <div className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                ❌ {pivaValidation.errors[0]}
+              </div>
+            )}
+            {duplicateCompany && (
+              <div className="mt-1 text-sm text-orange-600 flex items-center gap-1">
+                ⚠️ P.IVA già registrata per: <strong>{duplicateCompany.name}</strong>
+              </div>
+            )}
+            {pivaValidation?.isValid && pivaValidation.isChecksumValid && !duplicateCompany && (
+              <div className="mt-1 text-sm text-green-600 flex items-center gap-1">
+                ✓ Partita IVA valida
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Email"
               name="email"
@@ -331,27 +471,28 @@ export default function Companies() {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Telefono"
               name="phone"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
-            <Input
-              label="Referente"
-              name="contactPerson"
-              value={formData.contactPerson}
-              onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-            />
           </div>
+
           <Input
             label="Indirizzo"
             name="address"
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
+
+          <Input
+            label="Persona di Contatto"
+            name="contactPerson"
+            value={formData.contactPerson}
+            onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+          />
+
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
               Annulla
@@ -363,13 +504,13 @@ export default function Companies() {
         </form>
       </Modal>
 
-      {/* Delete Confirmation */}
+      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
         onConfirm={handleDelete}
         title="Elimina Azienda"
-        message={`Sei sicuro di voler eliminare l'azienda "${selectedCompany?.name}"? Questa azione non può essere annullata e rimuoverà anche tutti gli studenti e le iscrizioni associate.`}
+        message={`Sei sicuro di voler eliminare l'azienda "${selectedCompany?.name}"? Questa azione è irreversibile.`}
         confirmText="Elimina"
         isLoading={isSaving}
       />

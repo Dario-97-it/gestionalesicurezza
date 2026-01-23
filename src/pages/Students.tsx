@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -6,9 +7,11 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState, Pagination } from '../components/ui/Table';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { studentsApi, companiesApi } from '../lib/api';
-import type { Student, Company, PaginatedResponse } from '../types';
+import { validaCF, reverseCF, formattaDataNascita } from '../lib/codiceFiscale';
+import type { Student, Company } from '../types';
 
 export default function Students() {
+  const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
@@ -20,7 +23,9 @@ export default function Students() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
+  
+  // Form state
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -32,6 +37,20 @@ export default function Students() {
     address: '',
     companyId: '',
   });
+
+  // CF validation state
+  const [cfValidation, setCfValidation] = useState<{
+    isValid: boolean;
+    isChecksumValid: boolean;
+    warnings: string[];
+    errors: string[];
+  } | null>(null);
+  const [cfAutoFilled, setCfAutoFilled] = useState<{
+    birthDate: boolean;
+    birthPlace: boolean;
+  }>({ birthDate: false, birthPlace: false });
+  const [duplicateStudent, setDuplicateStudent] = useState<{ id: number; name: string } | null>(null);
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   // Fetch students
   const fetchStudents = useCallback(async (page = 1, searchTerm = '', companyId?: number) => {
@@ -79,6 +98,69 @@ export default function Students() {
     return () => clearTimeout(timer);
   }, [search, companyFilter]);
 
+  // CF validation and reverse engineering
+  useEffect(() => {
+    if (!formData.fiscalCode || formData.fiscalCode.length < 16) {
+      setCfValidation(null);
+      setCfAutoFilled({ birthDate: false, birthPlace: false });
+      setDuplicateStudent(null);
+      return;
+    }
+
+    // Validate CF
+    const validation = validaCF(formData.fiscalCode);
+    setCfValidation(validation);
+
+    // Reverse engineering if valid format
+    if (validation.isValid) {
+      const reversed = reverseCF(formData.fiscalCode);
+      
+      // Auto-fill birth date if not already filled
+      if (reversed.dataNascita && !formData.birthDate) {
+        setFormData(prev => ({ ...prev, birthDate: reversed.dataNascita! }));
+        setCfAutoFilled(prev => ({ ...prev, birthDate: true }));
+      }
+      
+      // Auto-fill birth place if not already filled
+      if (reversed.luogoNascita && !formData.birthPlace) {
+        const luogo = reversed.provinciaNascita 
+          ? `${reversed.luogoNascita} (${reversed.provinciaNascita})`
+          : reversed.luogoNascita;
+        setFormData(prev => ({ ...prev, birthPlace: luogo }));
+        setCfAutoFilled(prev => ({ ...prev, birthPlace: true }));
+      }
+    }
+
+    // Check for duplicates (debounced)
+    const checkDuplicate = async () => {
+      setIsCheckingDuplicate(true);
+      try {
+        const excludeId = selectedStudent?.id;
+        const response = await fetch(
+          `/api/students/check-duplicate?fiscalCode=${encodeURIComponent(formData.fiscalCode)}${excludeId ? `&excludeId=${excludeId}` : ''}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          }
+        );
+        const data = await response.json();
+        if (data.isDuplicate) {
+          setDuplicateStudent(data.existingStudent);
+        } else {
+          setDuplicateStudent(null);
+        }
+      } catch (err) {
+        console.error('Error checking duplicate:', err);
+      } finally {
+        setIsCheckingDuplicate(false);
+      }
+    };
+
+    const timer = setTimeout(checkDuplicate, 300);
+    return () => clearTimeout(timer);
+  }, [formData.fiscalCode, selectedStudent?.id]);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
   };
@@ -92,8 +174,7 @@ export default function Students() {
     fetchStudents(page, search, companyFilter);
   };
 
-  const openCreateModal = () => {
-    setSelectedStudent(null);
+  const resetForm = () => {
     setFormData({
       firstName: '',
       lastName: '',
@@ -105,6 +186,14 @@ export default function Students() {
       address: '',
       companyId: '',
     });
+    setCfValidation(null);
+    setCfAutoFilled({ birthDate: false, birthPlace: false });
+    setDuplicateStudent(null);
+  };
+
+  const openCreateModal = () => {
+    setSelectedStudent(null);
+    resetForm();
     setIsModalOpen(true);
   };
 
@@ -121,6 +210,7 @@ export default function Students() {
       address: student.address || '',
       companyId: student.companyId ? String(student.companyId) : '',
     });
+    setCfAutoFilled({ birthDate: false, birthPlace: false });
     setIsModalOpen(true);
   };
 
@@ -129,8 +219,21 @@ export default function Students() {
     setIsDeleteDialogOpen(true);
   };
 
+  const viewStudentDetail = (student: Student) => {
+    navigate(`/students/${student.id}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Warning if duplicate found
+    if (duplicateStudent) {
+      const confirmProceed = window.confirm(
+        `Attenzione: esiste già uno studente con questo codice fiscale (${duplicateStudent.name}). Vuoi continuare comunque?`
+      );
+      if (!confirmProceed) return;
+    }
+
     setIsSaving(true);
     try {
       const data = {
@@ -212,6 +315,15 @@ export default function Students() {
     return company?.name || '-';
   };
 
+  // Get CF input border color based on validation
+  const getCfBorderClass = () => {
+    if (!cfValidation) return '';
+    if (duplicateStudent) return 'border-orange-500 ring-1 ring-orange-500';
+    if (!cfValidation.isChecksumValid) return 'border-yellow-500 ring-1 ring-yellow-500';
+    if (cfValidation.isValid) return 'border-green-500 ring-1 ring-green-500';
+    return 'border-red-500 ring-1 ring-red-500';
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -233,7 +345,11 @@ export default function Students() {
 
         {/* Messages */}
         {message && (
-          <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          <div className={`p-4 rounded-lg ${
+            message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 
+            message.type === 'warning' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' :
+            'bg-red-50 text-red-700 border border-red-200'
+          }`}>
             {message.text}
           </div>
         )}
@@ -314,6 +430,13 @@ export default function Students() {
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <button
+                              onClick={() => viewStudentDetail(student)}
+                              className="p-1 text-gray-400 hover:text-green-600"
+                              title="Visualizza dettaglio"
+                            >
+                              👁️
+                            </button>
+                            <button
                               onClick={() => openEditModal(student)}
                               className="p-1 text-gray-400 hover:text-blue-600"
                               title="Modifica"
@@ -364,6 +487,7 @@ export default function Students() {
           <p className="text-sm text-gray-500 mb-4">
             {selectedStudent ? 'Modifica i dati dello studente.' : 'Inserisci i dati del nuovo studente.'} I campi contrassegnati con * sono obbligatori.
           </p>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Nome *"
@@ -380,14 +504,41 @@ export default function Students() {
               onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
             />
           </div>
-          <Input
-            label="Codice Fiscale"
-            name="fiscalCode"
-            maxLength={16}
-            value={formData.fiscalCode}
-            onChange={(e) => setFormData({ ...formData, fiscalCode: e.target.value.toUpperCase() })}
-            placeholder="Es: RSSMRA80A01H501U"
-          />
+
+          {/* Codice Fiscale with validation */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Codice Fiscale
+              {isCheckingDuplicate && <span className="ml-2 text-gray-400 text-xs">Verifica in corso...</span>}
+            </label>
+            <input
+              type="text"
+              name="fiscalCode"
+              maxLength={16}
+              value={formData.fiscalCode}
+              onChange={(e) => setFormData({ ...formData, fiscalCode: e.target.value.toUpperCase() })}
+              placeholder="Es: RSSMRA80A01H501U"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono uppercase ${getCfBorderClass()}`}
+            />
+            
+            {/* CF Validation Messages */}
+            {cfValidation && !cfValidation.isChecksumValid && (
+              <div className="mt-1 text-sm text-yellow-600 flex items-center gap-1">
+                ⚠️ Attenzione: checksum non valido
+              </div>
+            )}
+            {duplicateStudent && (
+              <div className="mt-1 text-sm text-orange-600 flex items-center gap-1">
+                ⚠️ CF già registrato per: <strong>{duplicateStudent.name}</strong>
+              </div>
+            )}
+            {cfValidation?.isValid && cfValidation.isChecksumValid && !duplicateStudent && (
+              <div className="mt-1 text-sm text-green-600 flex items-center gap-1">
+                ✓ Codice fiscale valido
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Email"
@@ -403,27 +554,53 @@ export default function Students() {
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Data di Nascita"
-              name="birthDate"
-              type="date"
-              value={formData.birthDate}
-              onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-            />
-            <Input
-              label="Luogo di Nascita"
-              name="birthPlace"
-              value={formData.birthPlace}
-              onChange={(e) => setFormData({ ...formData, birthPlace: e.target.value })}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data di Nascita
+                {cfAutoFilled.birthDate && (
+                  <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">auto</span>
+                )}
+              </label>
+              <input
+                type="date"
+                name="birthDate"
+                value={formData.birthDate}
+                onChange={(e) => {
+                  setFormData({ ...formData, birthDate: e.target.value });
+                  setCfAutoFilled(prev => ({ ...prev, birthDate: false }));
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Luogo di Nascita
+                {cfAutoFilled.birthPlace && (
+                  <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">auto</span>
+                )}
+              </label>
+              <input
+                type="text"
+                name="birthPlace"
+                value={formData.birthPlace}
+                onChange={(e) => {
+                  setFormData({ ...formData, birthPlace: e.target.value });
+                  setCfAutoFilled(prev => ({ ...prev, birthPlace: false }));
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
+
           <Input
             label="Indirizzo"
             name="address"
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Azienda</label>
             <select
@@ -438,6 +615,7 @@ export default function Students() {
               ))}
             </select>
           </div>
+
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
               Annulla
@@ -449,13 +627,13 @@ export default function Students() {
         </form>
       </Modal>
 
-      {/* Delete Confirmation */}
+      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
         onConfirm={handleDelete}
         title="Elimina Studente"
-        message={`Sei sicuro di voler eliminare lo studente "${selectedStudent?.firstName} ${selectedStudent?.lastName}"? Questa azione non può essere annullata e rimuoverà anche tutte le iscrizioni associate.`}
+        message={`Sei sicuro di voler eliminare lo studente "${selectedStudent?.firstName} ${selectedStudent?.lastName}"? Questa azione è irreversibile.`}
         confirmText="Elimina"
         isLoading={isSaving}
       />
