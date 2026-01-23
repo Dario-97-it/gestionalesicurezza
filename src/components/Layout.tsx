@@ -14,6 +14,9 @@ import {
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
   UsersIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
@@ -25,8 +28,10 @@ const navigation = [
   { name: 'Corsi', href: '/courses', icon: AcademicCapIcon },
   { name: 'Edizioni', href: '/editions', icon: CalendarDaysIcon },
   { name: 'Iscrizioni', href: '/registrations', icon: ClipboardDocumentCheckIcon },
-  { name: 'Presenze', href: '/attendances', icon: ClipboardDocumentCheckIcon },
+  { name: 'Presenze', href: '/attendances', icon: ClockIcon },
   { name: 'Docenti', href: '/instructors', icon: UsersIcon },
+  { name: 'Scadenzario', href: '/certificates', icon: ExclamationTriangleIcon },
+  { name: 'Report', href: '/reports', icon: ChartBarIcon },
 ];
 
 interface LayoutProps {

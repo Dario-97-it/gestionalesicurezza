@@ -15,6 +15,8 @@ import {
 } from './pages';
 import StudentDetail from './pages/StudentDetail';
 import CompanyDetail from './pages/CompanyDetail';
+import Certificates from './pages/Certificates';
+import Reports from './pages/Reports';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -142,6 +144,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Instructors />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/certificates"
+        element={
+          <ProtectedRoute>
+            <Certificates />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <Reports />
           </ProtectedRoute>
         }
       />
