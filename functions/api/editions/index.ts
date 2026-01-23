@@ -79,7 +79,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       dedicatedCompanyId: schema.courseEditions.dedicatedCompanyId,
       instructor: schema.courseEditions.instructor,
       status: schema.courseEditions.status,
-      notes: schema.courseEditions.notes,
       createdAt: schema.courseEditions.createdAt,
       courseTitle: schema.courses.title,
       courseCode: schema.courses.code,
@@ -125,7 +124,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('List editions error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -148,7 +147,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const body = await request.json() as any;
     const { 
       courseId, startDate, endDate, location, maxParticipants, price, 
-      customPrice, dedicatedCompanyId, instructorId, instructor, status, notes 
+      customPrice, dedicatedCompanyId, instructorId, instructor, status
     } = body;
 
     // Validazione
@@ -199,14 +198,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // Crea edizione
+    // Crea edizione - endDate e location sono obbligatori nello schema
     const now = new Date().toISOString();
     const result = await db.insert(schema.courseEditions).values({
       clientId: auth.clientId,
       courseId,
       startDate,
-      endDate: endDate || null,
-      location: location || null,
+      endDate: endDate || startDate, // Se non specificato, usa la stessa data di inizio
+      location: location || 'Da definire', // Valore di default se non specificato
       maxParticipants: maxParticipants || 20,
       price: price || course[0].defaultPrice || 0,
       customPrice: customPrice || null,
@@ -214,7 +213,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       instructorId: instructorId || null,
       instructor: instructor || null,
       status: status || 'scheduled',
-      notes: notes || null,
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.courseEditions.id });
@@ -229,7 +227,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Create edition error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
