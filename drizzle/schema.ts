@@ -396,5 +396,25 @@ export const auditLog = sqliteTable("auditLog", {
   createdAtIdx: index("audit_createdAt_idx").on(table.createdAt),
 }));
 
-export type AuditLog = typeof auditLog.$inferSelect;
-export type InsertAuditLog = typeof auditLog.$inferInsert;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;
+
+/**
+ * Email Settings table - Credenziali Gmail per invio inviti calendario
+ * Ogni cliente può configurare la propria email Gmail per inviare inviti ai docenti
+ */
+export const emailSettings = sqliteTable("emailSettings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  password: text("password").notNull(), // Criptata
+  twoFactorCode: text("twoFactorCode"), // Criptata, opzionale
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  clientIdIdx: index("emailSettings_clientId_idx").on(table.clientId),
+  uniqueClientEmail: unique().on(table.clientId),
+}));
+
+export type EmailSettings = typeof emailSettings.$inferSelect;
+export type InsertEmailSettings = typeof emailSettings.$inferInsert;

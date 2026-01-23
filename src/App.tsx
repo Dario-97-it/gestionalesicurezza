@@ -17,6 +17,7 @@ import StudentDetail from './pages/StudentDetail';
 import CompanyDetail from './pages/CompanyDetail';
 import Certificates from './pages/Certificates';
 import Reports from './pages/Reports';
+import { EmailSettings } from './pages/EmailSettings';
 
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -148,6 +149,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/certificates"
         element={
           <ProtectedRoute>
@@ -164,10 +173,10 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/profile"
+        path="/settings/email"
         element={
           <ProtectedRoute>
-            <Profile />
+            <EmailSettings />
           </ProtectedRoute>
         }
       />
