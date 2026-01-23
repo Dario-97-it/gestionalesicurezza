@@ -24,6 +24,23 @@ const api: AxiosInstance = axios.create({
 
 // Token management
 let accessToken: string | null = localStorage.getItem('accessToken');
+let refreshToken: string | null = localStorage.getItem('refreshToken');
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token!);
+    }
+  });
+  failedQueue = [];
+};
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -40,53 +57,117 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      // Try to refresh token
-      try {
-        const refreshResponse = await axios.post('/api/auth/refresh', {}, { withCredentials: true });
-        if (refreshResponse.data.accessToken) {
-          accessToken = refreshResponse.data.accessToken;
-          localStorage.setItem('accessToken', accessToken!);
-          // Retry original request
-          if (error.config) {
-            error.config.headers.Authorization = `Bearer ${accessToken}`;
-            return api.request(error.config);
-          }
-        }
-      } catch {
-        // Refresh failed, clear tokens and redirect to login
-        accessToken = null;
-        localStorage.removeItem('accessToken');
+    const originalRequest = error.config as any;
+    
+    // Se è un 401 e non è già un retry
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Se stiamo già facendo il refresh, metti in coda
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      // Se non abbiamo un refresh token, vai al login
+      if (!refreshToken) {
+        isRefreshing = false;
+        clearTokens();
         window.location.href = '/login';
+        return Promise.reject(error);
+      }
+
+      try {
+        // Chiama refresh con il refreshToken nel body
+        const response = await axios.post('/api/auth/refresh', 
+          { refreshToken },
+          { withCredentials: true }
+        );
+        
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+        
+        // Salva i nuovi token
+        setTokens(newAccessToken, newRefreshToken);
+        
+        // Processa la coda di richieste fallite
+        processQueue(null, newAccessToken);
+        
+        // Riprova la richiesta originale
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return api(originalRequest);
+        
+      } catch (refreshError) {
+        // Refresh fallito, pulisci e vai al login
+        processQueue(refreshError, null);
+        clearTokens();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
+    
     return Promise.reject(error);
   }
 );
 
-// Set access token
-export const setAccessToken = (token: string | null) => {
-  accessToken = token;
-  if (token) {
-    localStorage.setItem('accessToken', token);
+// Set tokens
+export const setTokens = (newAccessToken: string | null, newRefreshToken?: string | null) => {
+  accessToken = newAccessToken;
+  if (newAccessToken) {
+    localStorage.setItem('accessToken', newAccessToken);
   } else {
     localStorage.removeItem('accessToken');
   }
+  
+  if (newRefreshToken !== undefined) {
+    refreshToken = newRefreshToken;
+    if (newRefreshToken) {
+      localStorage.setItem('refreshToken', newRefreshToken);
+    } else {
+      localStorage.removeItem('refreshToken');
+    }
+  }
+};
+
+// Clear tokens
+export const clearTokens = () => {
+  accessToken = null;
+  refreshToken = null;
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+};
+
+// Legacy function for backward compatibility
+export const setAccessToken = (token: string | null) => {
+  setTokens(token);
 };
 
 // Auth API
 export const authApi = {
-  login: async (email: string, password: string): Promise<{ user: User; client: Client; accessToken: string }> => {
+  login: async (email: string, password: string): Promise<{ user: User; client: Client; accessToken: string; refreshToken: string }> => {
     const response = await api.post('/auth/login', { email, password });
     if (response.data.accessToken) {
-      setAccessToken(response.data.accessToken);
+      // Salva sia accessToken che refreshToken
+      setTokens(response.data.accessToken, response.data.refreshToken);
     }
     return response.data;
   },
 
   logout: async (): Promise<void> => {
-    await api.post('/auth/logout');
-    setAccessToken(null);
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      // Ignora errori di logout
+    }
+    clearTokens();
   },
 
   me: async (): Promise<{ user: User; client: Client }> => {
@@ -94,10 +175,13 @@ export const authApi = {
     return response.data;
   },
 
-  refresh: async (): Promise<{ accessToken: string }> => {
-    const response = await api.post('/auth/refresh');
+  refresh: async (): Promise<{ accessToken: string; refreshToken: string }> => {
+    const response = await axios.post('/api/auth/refresh', 
+      { refreshToken },
+      { withCredentials: true }
+    );
     if (response.data.accessToken) {
-      setAccessToken(response.data.accessToken);
+      setTokens(response.data.accessToken, response.data.refreshToken);
     }
     return response.data;
   },

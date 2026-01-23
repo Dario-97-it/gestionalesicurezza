@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authApi, setAccessToken } from '../lib/api';
+import { authApi, setTokens, clearTokens } from '../lib/api';
 import type { User, Client, AuthState } from '../types';
 
 interface AuthContextType extends AuthState {
@@ -31,7 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setAccessToken(token);
       const { user, client } = await authApi.me();
       setState({
         user,
@@ -41,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     } catch (error) {
       console.error('Auth refresh failed:', error);
-      setAccessToken(null);
+      clearTokens();
       setState({
         user: null,
         client: null,
@@ -58,8 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
-      const { user, client, accessToken } = await authApi.login(email, password);
-      setAccessToken(accessToken);
+      const { user, client, accessToken, refreshToken } = await authApi.login(email, password);
+      // I token vengono già salvati in authApi.login, ma assicuriamoci
+      setTokens(accessToken, refreshToken);
       setState({
         user,
         client,
@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      setAccessToken(null);
+      clearTokens();
       setState({
         user: null,
         client: null,
