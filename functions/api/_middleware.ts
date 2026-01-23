@@ -5,6 +5,13 @@
 
 import { jwtVerify } from 'jose';
 
+interface Env {
+  JWT_SECRET: string;
+  DB: D1Database;
+  SESSIONS: KVNamespace;
+  SUBSCRIPTIONS: KVNamespace;
+}
+
 interface AuthContext {
   clientId: number;
   userId: number;
@@ -13,14 +20,14 @@ interface AuthContext {
   isClientAdmin: boolean;
 }
 
-export const onRequest: PagesFunction = async (context) => {
-  const { request } = context;
-  const env = context.env as any;
+export const onRequest: PagesFunction<Env> = async (context) => {
+  const { request, env } = context;
 
-  // Skip auth per login e health check
-  if (request.url.includes('/api/auth/login') || 
-      request.url.includes('/api/auth/refresh') ||
-      request.url.includes('/api/health')) {
+  // Skip auth per login, refresh e health check
+  const url = new URL(request.url);
+  if (url.pathname === '/api/auth/login' || 
+      url.pathname === '/api/auth/refresh' ||
+      url.pathname === '/api/health') {
     return context.next();
   }
 
@@ -36,8 +43,17 @@ export const onRequest: PagesFunction = async (context) => {
 
     const token = authHeader.substring(7);
 
+    // Verifica che JWT_SECRET sia configurato
+    if (!env.JWT_SECRET) {
+      console.error('JWT_SECRET non configurato!');
+      return new Response(JSON.stringify({ error: 'Configurazione server non valida' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Verifica il token JWT
-    const secret = new TextEncoder().encode(env.JWT_SECRET || 'default-secret');
+    const secret = new TextEncoder().encode(env.JWT_SECRET);
     const verified = await jwtVerify(token, secret);
     
     // Passa il contesto autenticato al context
@@ -45,7 +61,7 @@ export const onRequest: PagesFunction = async (context) => {
 
     return context.next();
   } catch (error: any) {
-    console.error('Auth middleware error:', error);
+    console.error('Auth middleware error:', error.message);
     return new Response(JSON.stringify({ error: 'Token non valido' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
