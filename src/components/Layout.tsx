@@ -29,6 +29,7 @@ const navigation = [
   { name: 'Edizioni', href: '/editions', icon: CalendarDaysIcon },
   { name: 'Iscrizioni', href: '/registrations', icon: ClipboardDocumentCheckIcon },
   { name: 'Presenze', href: '/attendances', icon: ClockIcon },
+  { name: 'Calendario', href: '/calendar', icon: CalendarDaysIcon },
   { name: 'Docenti', href: '/instructors', icon: UsersIcon },
   { name: 'Scadenzario', href: '/certificates', icon: ExclamationTriangleIcon },
   { name: 'Notifiche Scadenze', href: '/notifications/certificates', icon: ExclamationTriangleIcon },
