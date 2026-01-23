@@ -31,6 +31,7 @@ const navigation = [
   { name: 'Presenze', href: '/attendances', icon: ClockIcon },
   { name: 'Docenti', href: '/instructors', icon: UsersIcon },
   { name: 'Scadenzario', href: '/certificates', icon: ExclamationTriangleIcon },
+  { name: 'Notifiche Scadenze', href: '/notifications/certificates', icon: ExclamationTriangleIcon },
   { name: 'Report', href: '/reports', icon: ChartBarIcon },
 ];
 
