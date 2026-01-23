@@ -316,6 +316,27 @@ export default function Attendances() {
     });
   };
 
+  const handleExportExcel = async () => {
+    if (!selectedEdition || !selectedSession) return;
+    const edition = editions.find(e => e.id === selectedEdition);
+    const course = courses.find(c => c.id === edition?.courseId);
+    const session = sessions.find(s => s.id === selectedSession);
+    if (!edition || !course || !session) return;
+    const editionDate = edition.startDate ? new Date(edition.startDate).toLocaleDateString('it-IT') : '';
+    const sessionDate = new Date(session.date).toLocaleDateString('it-IT');
+    const sessionInfo = `${sessionDate} ${session.startTime}-${session.endTime}`;
+    await exportAttendanceExcel({
+      courseName: course.title,
+      editionDate,
+      sessionInfo,
+      instructor: 'Da compilare',
+      location: session.location || edition.location || 'Da compilare',
+      students: attendances,
+      totalHours,
+      totalSessionHours
+    });
+  };
+
   const presentCount = attendances.filter(a => a.present).length;
   const totalCount = attendances.length;
   const totalHours = attendances.reduce((sum, a) => sum + a.hoursAttended, 0);
