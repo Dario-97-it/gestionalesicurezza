@@ -67,10 +67,16 @@ export default function Attendances() {
   const fetchSessions = useCallback(async (editionId: number) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/editions/${editionId}/sessions`);
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/editions/${editionId}/sessions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       if (!response.ok) throw new Error('Errore nel caricamento delle sessioni');
       const data = await response.json();
-      setSessions(data.data || data || []);
+      setSessions(data.sessions || data.data || data || []);
       setSelectedSession(undefined);
       setAttendances([]);
     } catch (err) {
@@ -93,12 +99,17 @@ export default function Attendances() {
       const registrations = regResponse.data || [];
 
       // Get session details
-      const sessionResponse = await fetch(`/api/sessions/${sessionId}`);
+      const token = localStorage.getItem('accessToken');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      const sessionResponse = await fetch(`/api/sessions/${sessionId}`, { headers });
       const sessionData = await sessionResponse.json();
       const session = sessionData.data || sessionData;
 
       // Get attendances for this session
-      const attResponse = await fetch(`/api/attendances?editionId=${editionId}&sessionId=${sessionId}`);
+      const attResponse = await fetch(`/api/attendances?editionId=${editionId}&sessionId=${sessionId}`, { headers });
       const attData = await attResponse.json();
       const existingAttendances = attData.data || [];
 
@@ -174,9 +185,13 @@ export default function Attendances() {
       const newPresent = !existing?.present;
       const newHours = newPresent ? sessionHours : 0;
 
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/attendances/upsert', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           courseEditionId: selectedEdition,
           studentId,
@@ -221,9 +236,13 @@ export default function Attendances() {
     try {
       const sessionHours = attendances[0]?.sessionHours || 0;
 
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/attendances/mark-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           editionId: selectedEdition,
           sessionId: selectedSession,
@@ -255,9 +274,13 @@ export default function Attendances() {
 
     setIsSaving(true);
     try {
+      const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/attendances/mark-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           editionId: selectedEdition,
           sessionId: selectedSession,
