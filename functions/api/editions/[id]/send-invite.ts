@@ -1,7 +1,6 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, and, asc } from 'drizzle-orm';
 import * as schema from '../../../../drizzle/schema';
-import nodemailer from 'nodemailer';
 
 interface Env {
   DB: D1Database;
@@ -12,7 +11,7 @@ interface Env {
 // Funzione per decriptare
 const decrypt = (encrypted: string): string => {
   try {
-    return Buffer.from(encrypted, 'base64').toString('utf-8');
+    return atob(encrypted);
   } catch {
     return encrypted;
   }
@@ -128,17 +127,49 @@ function generateICalendar(
   return lines.join('\r\n');
 }
 
+// Funzione per inviare email via Resend API
+const sendEmailViaResend = async (
+  to: string,
+  subject: string,
+  html: string,
+  attachments: { filename: string; content: string }[],
+  fromName: string,
+  resendApiKey: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: `${fromName} <onboarding@resend.dev>`,
+        to: [to],
+        subject,
+        html,
+        attachments: attachments.map(a => ({
+          filename: a.filename,
+          content: btoa(a.content)
+        }))
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, error: JSON.stringify(errorData) };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
 // POST /api/editions/:id/send-invite - Invia invito calendario al docente
-export const onRequest: PagesFunction<Env> = async (context) => {
+export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env, params } = context;
   
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Metodo non supportato' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
   const db = drizzle(env.DB, { schema });
   const auth = context.data.auth as { clientId: number; userId: number } | undefined;
 
@@ -223,148 +254,73 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       organizer
     );
 
-    // Prova prima con Gmail SMTP (se configurato)
+    // Prepara l'HTML dell'email
+    const emailHtml = `
+      <h2>Invito al corso: ${edition.course?.title || 'Corso'}</h2>
+      <p>Gentile ${edition.instructor.firstName} ${edition.instructor.lastName},</p>
+      <p>Sei stato assegnato come docente per il seguente corso:</p>
+      <ul>
+        <li><strong>Corso:</strong> ${edition.course?.title}</li>
+        <li><strong>Location:</strong> ${edition.location}</li>
+        <li><strong>Sessioni:</strong> ${sessions.length}</li>
+        <li><strong>Totale ore:</strong> ${sessions.reduce((sum, s) => sum + s.hours, 0)}</li>
+      </ul>
+      <h3>Calendario sessioni:</h3>
+      <table border="1" cellpadding="8" cellspacing="0">
+        <tr>
+          <th>#</th>
+          <th>Data</th>
+          <th>Orario</th>
+          <th>Ore</th>
+          <th>Location</th>
+        </tr>
+        ${sessions.map((s, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${new Date(s.sessionDate).toLocaleDateString('it-IT')}</td>
+            <td>${s.startTime} - ${s.endTime}</td>
+            <td>${s.hours}h</td>
+            <td>${s.location || edition.location}</td>
+          </tr>
+        `).join('')}
+      </table>
+      <p>In allegato trovi il file calendario (.ics) da importare nel tuo calendario.</p>
+      <p>Cordiali saluti,<br>${organizer.name}</p>
+    `;
+
+    // Prova a inviare email
     let emailSent = false;
     let emailError: string | null = null;
 
-    try {
-      // Recupera le credenziali Gmail dal database
-      const emailSettings = await db.query.emailSettings.findFirst({
-        where: eq(schema.emailSettings.clientId, auth.clientId),
-      });
+    // Recupera le impostazioni email dal database
+    const emailSettings = await db.query.emailSettings.findFirst({
+      where: eq(schema.emailSettings.clientId, auth.clientId),
+    });
 
-      if (emailSettings) {
-        const gmailEmail = emailSettings.email;
-        const gmailPassword = decrypt(emailSettings.password);
+    // Usa Resend API Key dalle impostazioni del cliente o dall'ambiente
+    const resendApiKey = emailSettings?.resendApiKey 
+      ? decrypt(emailSettings.resendApiKey) 
+      : env.RESEND_API_KEY;
 
-        // Crea il transporter Nodemailer
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: gmailEmail,
-            pass: gmailPassword
-          }
-        });
+    if (resendApiKey) {
+      const result = await sendEmailViaResend(
+        edition.instructor.email,
+        `Invito: ${edition.course?.title || 'Corso'} - ${sessions.length} sessioni`,
+        emailHtml,
+        [{
+          filename: `corso-${edition.id}.ics`,
+          content: icsContent
+        }],
+        organizer.name,
+        resendApiKey
+      );
 
-        // Invia l'email
-        await transporter.sendMail({
-          from: gmailEmail,
-          to: edition.instructor.email,
-          subject: `Invito: ${edition.course?.title || 'Corso'} - ${sessions.length} sessioni`,
-          html: `
-            <h2>Invito al corso: ${edition.course?.title || 'Corso'}</h2>
-            <p>Gentile ${edition.instructor.firstName} ${edition.instructor.lastName},</p>
-            <p>Sei stato assegnato come docente per il seguente corso:</p>
-            <ul>
-              <li><strong>Corso:</strong> ${edition.course?.title}</li>
-              <li><strong>Location:</strong> ${edition.location}</li>
-              <li><strong>Sessioni:</strong> ${sessions.length}</li>
-              <li><strong>Totale ore:</strong> ${sessions.reduce((sum, s) => sum + s.hours, 0)}</li>
-            </ul>
-            <h3>Calendario sessioni:</h3>
-            <table border="1" cellpadding="8" cellspacing="0">
-              <tr>
-                <th>#</th>
-                <th>Data</th>
-                <th>Orario</th>
-                <th>Ore</th>
-                <th>Location</th>
-              </tr>
-              ${sessions.map((s, i) => `
-                <tr>
-                  <td>${i + 1}</td>
-                  <td>${new Date(s.sessionDate).toLocaleDateString('it-IT')}</td>
-                  <td>${s.startTime} - ${s.endTime}</td>
-                  <td>${s.hours}h</td>
-                  <td>${s.location || edition.location}</td>
-                </tr>
-              `).join('')}
-            </table>
-            <p>In allegato trovi il file calendario (.ics) da importare nel tuo calendario.</p>
-            <p>Cordiali saluti,<br>${organizer.name}</p>
-          `,
-          attachments: [
-            {
-              filename: `corso-${edition.id}.ics`,
-              content: icsContent,
-              contentType: 'text/calendar; method=REQUEST'
-            }
-          ],
-        });
-
+      if (result.success) {
         emailSent = true;
-        console.log(`Email inviata via Gmail SMTP a ${edition.instructor.email}`);
-      }
-    } catch (gmailError: any) {
-      console.error('Gmail SMTP error:', gmailError);
-      emailError = gmailError.message;
-    }
-
-    // Fallback: se Gmail non è configurato o ha fallito, prova con Resend
-    if (!emailSent && env.RESEND_API_KEY) {
-      try {
-        const emailResponse = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: `${organizer.name} <onboarding@resend.dev>`,
-            to: [edition.instructor.email],
-            subject: `Invito: ${edition.course?.title || 'Corso'} - ${sessions.length} sessioni`,
-            html: `
-              <h2>Invito al corso: ${edition.course?.title || 'Corso'}</h2>
-              <p>Gentile ${edition.instructor.firstName} ${edition.instructor.lastName},</p>
-              <p>Sei stato assegnato come docente per il seguente corso:</p>
-              <ul>
-                <li><strong>Corso:</strong> ${edition.course?.title}</li>
-                <li><strong>Location:</strong> ${edition.location}</li>
-                <li><strong>Sessioni:</strong> ${sessions.length}</li>
-                <li><strong>Totale ore:</strong> ${sessions.reduce((sum, s) => sum + s.hours, 0)}</li>
-              </ul>
-              <h3>Calendario sessioni:</h3>
-              <table border="1" cellpadding="8" cellspacing="0">
-                <tr>
-                  <th>#</th>
-                  <th>Data</th>
-                  <th>Orario</th>
-                  <th>Ore</th>
-                  <th>Location</th>
-                </tr>
-                ${sessions.map((s, i) => `
-                  <tr>
-                    <td>${i + 1}</td>
-                    <td>${new Date(s.sessionDate).toLocaleDateString('it-IT')}</td>
-                    <td>${s.startTime} - ${s.endTime}</td>
-                    <td>${s.hours}h</td>
-                    <td>${s.location || edition.location}</td>
-                  </tr>
-                `).join('')}
-              </table>
-              <p>In allegato trovi il file calendario (.ics) da importare nel tuo calendario.</p>
-              <p>Cordiali saluti,<br>${organizer.name}</p>
-            `,
-            attachments: [
-              {
-                filename: `corso-${edition.id}.ics`,
-                content: Buffer.from(icsContent).toString('base64'),
-              }
-            ],
-          }),
-        });
-
-        if (emailResponse.ok) {
-          emailSent = true;
-          console.log(`Email inviata via Resend a ${edition.instructor.email}`);
-        } else {
-          const errorData = await emailResponse.json();
-          console.error('Resend error:', errorData);
-          emailError = 'Errore Resend API';
-        }
-      } catch (resendError: any) {
-        console.error('Resend error:', resendError);
-        emailError = resendError.message;
+        console.log(`Email inviata via Resend a ${edition.instructor.email}`);
+      } else {
+        emailError = result.error || 'Errore Resend API';
+        console.error('Resend error:', emailError);
       }
     }
 

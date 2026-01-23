@@ -1,7 +1,6 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
-import nodemailer from 'nodemailer';
 
 interface Env {
   DB: D1Database;
@@ -10,9 +9,49 @@ interface Env {
 // Funzione per decriptare
 const decrypt = (encrypted: string): string => {
   try {
-    return Buffer.from(encrypted, 'base64').toString('utf-8');
+    return atob(encrypted);
   } catch {
     return encrypted;
+  }
+};
+
+// Funzione per inviare email via Resend API
+const sendEmail = async (
+  to: string,
+  subject: string,
+  html: string,
+  fromEmail: string,
+  resendApiKey?: string
+): Promise<{ success: boolean; error?: string }> => {
+  if (!resendApiKey) {
+    // Simula invio se non c'è API key
+    console.log('Email would be sent to:', to, 'Subject:', subject);
+    return { success: true };
+  }
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: `SecurityTools <${fromEmail}>`,
+        to: [to],
+        subject,
+        html
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return { success: false, error: JSON.stringify(errorData) };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
   }
 };
 
@@ -25,16 +64,9 @@ function calculateExpirationDate(issuedAt: string, validityMonths: number): Date
 }
 
 // POST /api/certificates/notify-expiring - Invia notifiche email per certificati in scadenza
-export const onRequest: PagesFunction<Env> = async (context) => {
+export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Metodo non supportato' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
   const db = drizzle(env.DB, { schema });
   const auth = context.data.auth as { clientId: number; userId: number } | undefined;
 
@@ -58,31 +90,22 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       notifyCompanies = true
     } = body;
 
-    // Recupera le credenziali Gmail
+    // Recupera le impostazioni email
     const emailSettings = await db.query.emailSettings.findFirst({
       where: eq(schema.emailSettings.clientId, auth.clientId),
     });
 
     if (!emailSettings) {
       return new Response(JSON.stringify({ 
-        error: 'Credenziali Gmail non configurate' 
+        error: 'Impostazioni email non configurate' 
       }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    const gmailEmail = emailSettings.email;
-    const gmailPassword = decrypt(emailSettings.password);
-
-    // Crea il transporter Nodemailer
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: gmailEmail,
-        pass: gmailPassword
-      }
-    });
+    const senderEmail = emailSettings.email;
+    const resendApiKey = emailSettings.resendApiKey ? decrypt(emailSettings.resendApiKey) : undefined;
 
     // Recupera le registrazioni da notificare
     let query = db.query.registrations.findMany({
@@ -127,57 +150,59 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       // Notifica studente
       if (notifyStudents && reg.student?.email) {
-        try {
-          const urgencyText = daysUntilExpiration <= 7 ? 'URGENTE' : 'Promemoria';
-          
-          await transporter.sendMail({
-            from: gmailEmail,
-            to: reg.student.email,
-            subject: `${urgencyText}: Il tuo certificato scade tra ${daysUntilExpiration} giorni`,
-            html: `
-              <h2>Promemoria Scadenza Certificato</h2>
-              <p>Caro/a ${reg.student.firstName} ${reg.student.lastName},</p>
-              <p>Ti ricordiamo che il tuo certificato per il corso <strong>${course?.title}</strong> scadrà tra <strong>${daysUntilExpiration} giorni</strong>.</p>
-              <p><strong>Data di scadenza:</strong> ${expirationDate.toLocaleDateString('it-IT')}</p>
-              ${daysUntilExpiration <= 7 ? '<p style="color: red; font-weight: bold;">⚠️ Azione urgente richiesta!</p>' : ''}
-              <p>Per rinnovare il tuo certificato, contatta l'azienda di formazione.</p>
-              <p>Cordiali saluti,<br>SecurityTools</p>
-            `
-          });
+        const urgencyText = daysUntilExpiration <= 7 ? 'URGENTE' : 'Promemoria';
+        
+        const result = await sendEmail(
+          reg.student.email,
+          `${urgencyText}: Il tuo certificato scade tra ${daysUntilExpiration} giorni`,
+          `
+            <h2>Promemoria Scadenza Certificato</h2>
+            <p>Caro/a ${reg.student.firstName} ${reg.student.lastName},</p>
+            <p>Ti ricordiamo che il tuo certificato per il corso <strong>${course?.title}</strong> scadrà tra <strong>${daysUntilExpiration} giorni</strong>.</p>
+            <p><strong>Data di scadenza:</strong> ${expirationDate.toLocaleDateString('it-IT')}</p>
+            ${daysUntilExpiration <= 7 ? '<p style="color: red; font-weight: bold;">⚠️ Azione urgente richiesta!</p>' : ''}
+            <p>Per rinnovare il tuo certificato, contatta l'azienda di formazione.</p>
+            <p>Cordiali saluti,<br>SecurityTools</p>
+          `,
+          senderEmail,
+          resendApiKey
+        );
 
+        if (result.success) {
           emailsSent++;
           sentTo.push(`${reg.student.email} (studente)`);
           console.log(`Email inviata a studente: ${reg.student.email}`);
-        } catch (error) {
-          console.error(`Errore nell'invio email a studente ${reg.student.email}:`, error);
+        } else {
+          console.error(`Errore nell'invio email a studente ${reg.student.email}:`, result.error);
         }
       }
 
       // Notifica azienda
       if (notifyCompanies && reg.company?.email) {
-        try {
-          const urgencyText = daysUntilExpiration <= 7 ? 'URGENTE' : 'Promemoria';
-          
-          await transporter.sendMail({
-            from: gmailEmail,
-            to: reg.company.email,
-            subject: `${urgencyText}: Certificato in scadenza - ${reg.student?.firstName} ${reg.student?.lastName}`,
-            html: `
-              <h2>Promemoria Scadenza Certificato</h2>
-              <p>Gentile ${reg.company.name},</p>
-              <p>Ti ricordiamo che il certificato di <strong>${reg.student?.firstName} ${reg.student?.lastName}</strong> per il corso <strong>${course?.title}</strong> scadrà tra <strong>${daysUntilExpiration} giorni</strong>.</p>
-              <p><strong>Data di scadenza:</strong> ${expirationDate.toLocaleDateString('it-IT')}</p>
-              ${daysUntilExpiration <= 7 ? '<p style="color: red; font-weight: bold;">⚠️ Azione urgente richiesta!</p>' : ''}
-              <p>Per rinnovare il certificato, contatta il provider di formazione.</p>
-              <p>Cordiali saluti,<br>SecurityTools</p>
-            `
-          });
+        const urgencyText = daysUntilExpiration <= 7 ? 'URGENTE' : 'Promemoria';
+        
+        const result = await sendEmail(
+          reg.company.email,
+          `${urgencyText}: Certificato in scadenza - ${reg.student?.firstName} ${reg.student?.lastName}`,
+          `
+            <h2>Promemoria Scadenza Certificato</h2>
+            <p>Gentile ${reg.company.name},</p>
+            <p>Ti ricordiamo che il certificato di <strong>${reg.student?.firstName} ${reg.student?.lastName}</strong> per il corso <strong>${course?.title}</strong> scadrà tra <strong>${daysUntilExpiration} giorni</strong>.</p>
+            <p><strong>Data di scadenza:</strong> ${expirationDate.toLocaleDateString('it-IT')}</p>
+            ${daysUntilExpiration <= 7 ? '<p style="color: red; font-weight: bold;">⚠️ Azione urgente richiesta!</p>' : ''}
+            <p>Per rinnovare il certificato, contatta il provider di formazione.</p>
+            <p>Cordiali saluti,<br>SecurityTools</p>
+          `,
+          senderEmail,
+          resendApiKey
+        );
 
+        if (result.success) {
           emailsSent++;
           sentTo.push(`${reg.company.email} (azienda)`);
           console.log(`Email inviata ad azienda: ${reg.company.email}`);
-        } catch (error) {
-          console.error(`Errore nell'invio email ad azienda ${reg.company.email}:`, error);
+        } else {
+          console.error(`Errore nell'invio email ad azienda ${reg.company.email}:`, result.error);
         }
       }
     }

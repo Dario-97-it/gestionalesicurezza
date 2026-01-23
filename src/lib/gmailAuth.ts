@@ -1,57 +1,37 @@
-import nodemailer from 'nodemailer';
+import { api } from './api';
 
-// Interfaccia per credenziali Gmail
-export interface GmailCredentials {
+// Interfaccia per credenziali email
+export interface EmailCredentials {
   email: string;
-  password: string;
-  twoFactorCode?: string;
+  resendApiKey?: string;
 }
 
-// Funzione per validare credenziali Gmail
-export const validateGmailCredentials = async (credentials: GmailCredentials): Promise<boolean> => {
+// Funzione per validare credenziali email via API backend
+export const validateEmailCredentials = async (credentials: EmailCredentials): Promise<boolean> => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: credentials.email,
-        pass: credentials.password
-      }
-    });
-
-    await transporter.verify();
-    return true;
+    const response = await api.post('/api/email/test', credentials);
+    return response.data.success === true;
   } catch (error) {
-    console.error('Gmail credentials validation failed:', error);
+    console.error('Email credentials validation failed:', error);
     return false;
   }
 };
 
-// Funzione per inviare email via Gmail SMTP
-export const sendGmailEmail = async (
-  credentials: GmailCredentials,
+// Funzione per inviare email via API backend
+export const sendEmail = async (
   to: string,
   subject: string,
   html: string,
-  attachments?: any[]
+  attachments?: { filename: string; content: string }[]
 ): Promise<boolean> => {
   try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: credentials.email,
-        pass: credentials.password
-      }
-    });
-
-    await transporter.sendMail({
-      from: credentials.email,
+    const response = await api.post('/api/email/send', {
       to,
       subject,
       html,
       attachments
     });
-
-    return true;
+    return response.data.success === true;
   } catch (error) {
     console.error('Failed to send email:', error);
     return false;
@@ -101,9 +81,8 @@ END:VCALENDAR`;
   return ics;
 };
 
-// Funzione per inviare invito calendario
+// Funzione per inviare invito calendario via API backend
 export const sendCalendarInvite = async (
-  credentials: GmailCredentials,
   to: string,
   calendarData: {
     title: string;
@@ -113,47 +92,30 @@ export const sendCalendarInvite = async (
     endTime: string;
     location: string;
     organizerName: string;
+    organizerEmail: string;
   }
 ): Promise<boolean> => {
   try {
-    const ics = createCalendarInvite({
-      ...calendarData,
-      attendeeEmail: to,
-      organizerEmail: credentials.email
+    const response = await api.post('/api/email/send-invite', {
+      instructorEmail: to,
+      instructorName: 'Docente',
+      courseName: calendarData.title,
+      sessionDate: calendarData.startDate,
+      startTime: calendarData.startTime,
+      endTime: calendarData.endTime,
+      location: calendarData.location,
+      description: calendarData.description
     });
-
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: credentials.email,
-        pass: credentials.password
-      }
-    });
-
-    await transporter.sendMail({
-      from: credentials.email,
-      to,
-      subject: `Invito Calendario: ${calendarData.title}`,
-      html: `
-        <h2>${calendarData.title}</h2>
-        <p><strong>Data:</strong> ${calendarData.startDate}</p>
-        <p><strong>Orario:</strong> ${calendarData.startTime} - ${calendarData.endTime}</p>
-        <p><strong>Luogo:</strong> ${calendarData.location}</p>
-        <p><strong>Descrizione:</strong> ${calendarData.description}</p>
-        <p>Accetta l'invito per aggiungere l'evento al tuo calendario.</p>
-      `,
-      attachments: [
-        {
-          filename: 'invite.ics',
-          content: ics,
-          contentType: 'text/calendar; method=REQUEST'
-        }
-      ]
-    });
-
-    return true;
+    return response.data.success === true;
   } catch (error) {
     console.error('Failed to send calendar invite:', error);
     return false;
   }
 };
+
+// Alias per retrocompatibilità
+export const validateGmailCredentials = validateEmailCredentials;
+export const sendGmailEmail = sendEmail;
+
+// Interfaccia per retrocompatibilità
+export interface GmailCredentials extends EmailCredentials {}

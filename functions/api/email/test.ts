@@ -1,5 +1,3 @@
-import nodemailer from 'nodemailer';
-
 interface Env {
   DB: D1Database;
 }
@@ -17,56 +15,80 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const body = await context.request.json() as {
       email: string;
-      password: string;
-      twoFactorCode?: string;
+      resendApiKey?: string;
     };
 
-    const { email, password, twoFactorCode } = body;
+    const { email, resendApiKey } = body;
 
-    if (!email || !password) {
-      return new Response(JSON.stringify({ error: 'Email e password richieste' }), {
+    if (!email) {
+      return new Response(JSON.stringify({ error: 'Email richiesta' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Tenta di connettersi a Gmail
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: email,
-        pass: password
-      }
-    });
+    // Se c'è una API key Resend, testa la connessione
+    if (resendApiKey) {
+      try {
+        // Test API Resend verificando la validità della chiave
+        const response = await fetch('https://api.resend.com/domains', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-    try {
-      await transporter.verify();
-      
-      return new Response(JSON.stringify({ 
-        success: true,
-        message: 'Connessione riuscita'
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    } catch (error: any) {
-      // Se l'errore è dovuto a 2FA, richiedi il codice
-      if (error.message && error.message.includes('2FA') || error.message.includes('Application-specific')) {
+        if (response.ok) {
+          return new Response(JSON.stringify({ 
+            success: true,
+            message: 'Connessione Resend API riuscita',
+            provider: 'resend'
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else {
+          const errorData = await response.json();
+          return new Response(JSON.stringify({ 
+            error: 'API Key Resend non valida',
+            details: JSON.stringify(errorData)
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      } catch (error: any) {
         return new Response(JSON.stringify({ 
-          error: 'Autenticazione a 2 fattori richiesta'
+          error: 'Errore nella verifica della API Key Resend',
+          details: error.message
         }), {
-          status: 403,
+          status: 500,
           headers: { 'Content-Type': 'application/json' }
         });
       }
+    }
 
+    // Se non c'è API key, verifica solo che l'email sia valida
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
       return new Response(JSON.stringify({ 
-        error: 'Credenziali non valide'
+        error: 'Formato email non valido'
       }), {
-        status: 401,
+        status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
+
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: 'Email configurata (senza API key Resend, le email saranno simulate)',
+      provider: 'simulation'
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
   } catch (error: any) {
     console.error('Error testing email:', error);
     return new Response(JSON.stringify({ 
