@@ -104,9 +104,8 @@ export function Layout({ children }: LayoutProps) {
                 </Transition.Child>
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4">
                   <div className="flex h-16 shrink-0 items-center">
-                    <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                      <img src="/logo.png" alt="SecurityTools" className="h-10 w-10" />
-                      <span className="text-lg font-bold text-gray-900">SecurityTools</span>
+                    <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center hover:opacity-80 transition-opacity">
+                      <img src="/logo.png" alt="SecurityTools" className="h-8 w-auto" />
                     </Link>
                   </div>
                   <nav className="flex flex-1 flex-col">
@@ -153,9 +152,8 @@ export function Layout({ children }: LayoutProps) {
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
           <div className="flex h-16 shrink-0 items-center">
-            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <img src="/logo.png" alt="SecurityTools" className="h-12 w-12" />
-              <span className="text-lg font-bold text-gray-900">SecurityTools</span>
+            <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
+              <img src="/logo.png" alt="SecurityTools" className="h-10 w-auto" />
             </Link>
           </div>
           <nav className="flex flex-1 flex-col">
