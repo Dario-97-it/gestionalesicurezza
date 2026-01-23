@@ -9,8 +9,8 @@ import { Badge } from '../components/ui/Badge';
 import { coursesApi } from '../lib/api';
 import type { Course, PaginatedResponse } from '../types';
 
-export default function Courses() {
-  const [courses, setCourses] = useState<Course[]>([]);
+export default function Services() {
+  const [services, setServices] = useState<Course[]>([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -47,7 +47,7 @@ export default function Courses() {
   ];
 
   // Fetch courses
-  const fetchCourses = useCallback(async (page = 1, searchTerm = '') => {
+  const fetchServices = useCallback(async (page = 1, searchTerm = '') => {
     setIsLoading(true);
     setError(null);
     try {
@@ -71,7 +71,7 @@ export default function Courses() {
         );
       }
       
-      setCourses(filteredCourses);
+      setServices(filteredCourses);
       setPagination({
         page: response.page || 1,
         pageSize: response.pageSize || 20,
@@ -81,7 +81,7 @@ export default function Courses() {
     } catch (err: any) {
       console.error('Error fetching courses:', err);
       setError('Errore nel caricamento dei corsi');
-      setCourses([]);
+      setServices([]);
     } finally {
       setIsLoading(false);
     }
@@ -89,13 +89,13 @@ export default function Courses() {
 
   // Load courses on mount
   useEffect(() => {
-    fetchCourses();
+    fetchServices();
   }, [activeFilter]);
 
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchCourses(1, search);
+      fetchServices(1, search);
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
@@ -105,7 +105,7 @@ export default function Courses() {
   };
 
   const handlePageChange = (page: number) => {
-    fetchCourses(page, search);
+    fetchServices(page, search);
   };
 
   const openCreateModal = () => {
@@ -163,7 +163,7 @@ export default function Courses() {
         setMessage({ type: 'success', text: 'Corso creato con successo' });
       }
       setIsModalOpen(false);
-      fetchCourses(pagination.page, search);
+      fetchServices(pagination.page, search);
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
       console.error('Error saving course:', err);
@@ -180,7 +180,7 @@ export default function Courses() {
       await coursesApi.delete(selectedCourse.id);
       setMessage({ type: 'success', text: 'Corso eliminato con successo' });
       setIsDeleteDialogOpen(false);
-      fetchCourses(pagination.page, search);
+      fetchServices(pagination.page, search);
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
       console.error('Error deleting course:', err);
@@ -255,7 +255,7 @@ export default function Courses() {
         {error && (
           <div className="p-4 rounded-lg bg-yellow-50 text-yellow-700 border border-yellow-200">
             {error}
-            <button onClick={() => fetchCourses()} className="ml-4 underline">Riprova</button>
+            <button onClick={() => fetchServices()} className="ml-4 underline">Riprova</button>
           </div>
         )}
 

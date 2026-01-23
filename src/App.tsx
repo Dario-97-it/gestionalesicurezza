@@ -10,7 +10,7 @@ const Companies = lazy(() => import('./pages/Companies'));
 const CompanyDetail = lazy(() => import('./pages/CompanyDetail'));
 const Students = lazy(() => import('./pages/Students'));
 const StudentDetail = lazy(() => import('./pages/StudentDetail'));
-const Courses = lazy(() => import('./pages/Courses'));
+const Services = lazy(() => import('./pages/Services'));
 const Editions = lazy(() => import('./pages/Editions'));
 const Registrations = lazy(() => import('./pages/Registrations'));
 const Attendances = lazy(() => import('./pages/Attendances'));
@@ -120,10 +120,10 @@ function AppRoutes() {
           }
         />
         <Route
-          path="/courses"
+          path="/services"
           element={
             <ProtectedRoute>
-              <Courses />
+              <Services />
             </ProtectedRoute>
           }
         />

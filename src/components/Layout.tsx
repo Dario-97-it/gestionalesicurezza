@@ -26,7 +26,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Aziende', href: '/companies', icon: BuildingOfficeIcon },
   { name: 'Studenti', href: '/students', icon: UserGroupIcon },
-  { name: 'Corsi', href: '/courses', icon: AcademicCapIcon },
+  { name: 'Servizi', href: '/services', icon: AcademicCapIcon },
   { name: 'Edizioni', href: '/editions', icon: CalendarDaysIcon },
   { name: 'Iscrizioni', href: '/registrations', icon: ClipboardDocumentCheckIcon },
   { name: 'Presenze', href: '/attendances', icon: ClockIcon },
