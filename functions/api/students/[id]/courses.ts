@@ -86,7 +86,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         ));
 
       const totalSessions = attendances.length;
-      const attendedSessions = attendances.filter(a => a.present).length;
+      const attendedSessions = attendances.filter(a => a.status === 'present').length;
       const attendancePercentage = totalSessions > 0 
         ? Math.round((attendedSessions / totalSessions) * 100) 
         : 0;

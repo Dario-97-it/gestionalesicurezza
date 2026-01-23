@@ -66,7 +66,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     // Iscrizioni dell'anno
     const registrationsYear = await db.select({
       count: count(),
-      totalRevenue: sum(schema.registrations.appliedPrice),
+      totalRevenue: sum(schema.registrations.priceApplied),
     })
     .from(schema.registrations)
     .innerJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
@@ -89,7 +89,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
       const monthRegs = await db.select({
         count: count(),
-        revenue: sum(schema.registrations.appliedPrice),
+        revenue: sum(schema.registrations.priceApplied),
       })
       .from(schema.registrations)
       .innerJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
@@ -120,7 +120,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       id: schema.courses.id,
       title: schema.courses.title,
       registrations: count(schema.registrations.id),
-      revenue: sum(schema.registrations.appliedPrice),
+      revenue: sum(schema.registrations.priceApplied),
     })
     .from(schema.courses)
     .leftJoin(schema.courseEditions, eq(schema.courses.id, schema.courseEditions.courseId))
@@ -140,7 +140,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       name: schema.companies.name,
       students: count(sql`DISTINCT ${schema.students.id}`),
       registrations: count(schema.registrations.id),
-      revenue: sum(schema.registrations.appliedPrice),
+      revenue: sum(schema.registrations.priceApplied),
     })
     .from(schema.companies)
     .leftJoin(schema.students, eq(schema.companies.id, schema.students.companyId))
@@ -152,17 +152,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       lte(schema.courseEditions.startDate, endOfYear)
     ))
     .groupBy(schema.companies.id, schema.companies.name)
-    .orderBy(desc(sum(schema.registrations.appliedPrice)))
+    .orderBy(desc(sum(schema.registrations.priceApplied)))
     .limit(5);
 
     // Distribuzione corsi per tipo
     const coursesByType = await db.select({
-      type: schema.courses.courseType,
+      type: schema.courses.type,
       count: count(),
     })
     .from(schema.courses)
     .where(eq(schema.courses.clientId, auth.clientId))
-    .groupBy(schema.courses.courseType);
+    .groupBy(schema.courses.type);
 
     const totalCoursesForPercentage = coursesByType.reduce((sum, c) => sum + c.count, 0);
     const coursesByTypeWithPercentage = coursesByType.map(c => ({
