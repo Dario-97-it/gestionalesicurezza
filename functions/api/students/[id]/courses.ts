@@ -70,7 +70,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       courseCode: schema.courses.code,
     })
     .from(schema.registrations)
-    .innerJoin(schema.courseEditions, eq(schema.registrations.editionId, schema.courseEditions.id))
+    .innerJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
     .innerJoin(schema.courses, eq(schema.courseEditions.courseId, schema.courses.id))
     .where(eq(schema.registrations.studentId, studentId))
     .orderBy(schema.courseEditions.startDate);
@@ -82,7 +82,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         .from(schema.attendances)
         .where(and(
           eq(schema.attendances.studentId, studentId),
-          eq(schema.attendances.editionId, reg.editionId)
+          eq(schema.attendances.courseEditionId, reg.editionId)
         ));
 
       const totalSessions = attendances.length;

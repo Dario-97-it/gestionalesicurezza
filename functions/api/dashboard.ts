@@ -191,7 +191,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const completedRegistrations = await db.select({
       id: schema.registrations.id,
       studentId: schema.registrations.studentId,
-      editionId: schema.registrations.editionId,
+      editionId: schema.registrations.courseEditionId,
       status: schema.registrations.status,
       studentFirstName: schema.students.firstName,
       studentLastName: schema.students.lastName,

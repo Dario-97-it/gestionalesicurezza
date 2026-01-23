@@ -69,7 +69,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       totalRevenue: sum(schema.registrations.appliedPrice),
     })
     .from(schema.registrations)
-    .innerJoin(schema.courseEditions, eq(schema.registrations.editionId, schema.courseEditions.id))
+    .innerJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
     .where(and(
       eq(schema.registrations.clientId, auth.clientId),
       gte(schema.courseEditions.startDate, startOfYear),
@@ -92,7 +92,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         revenue: sum(schema.registrations.appliedPrice),
       })
       .from(schema.registrations)
-      .innerJoin(schema.courseEditions, eq(schema.registrations.editionId, schema.courseEditions.id))
+      .innerJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
       .where(and(
         eq(schema.registrations.clientId, auth.clientId),
         gte(schema.courseEditions.startDate, monthStart),
@@ -124,7 +124,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     })
     .from(schema.courses)
     .leftJoin(schema.courseEditions, eq(schema.courses.id, schema.courseEditions.courseId))
-    .leftJoin(schema.registrations, eq(schema.courseEditions.id, schema.registrations.editionId))
+    .leftJoin(schema.registrations, eq(schema.courseEditions.id, schema.registrations.courseEditionId))
     .where(and(
       eq(schema.courses.clientId, auth.clientId),
       gte(schema.courseEditions.startDate, startOfYear),
@@ -145,7 +145,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     .from(schema.companies)
     .leftJoin(schema.students, eq(schema.companies.id, schema.students.companyId))
     .leftJoin(schema.registrations, eq(schema.students.id, schema.registrations.studentId))
-    .leftJoin(schema.courseEditions, eq(schema.registrations.editionId, schema.courseEditions.id))
+    .leftJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
     .where(and(
       eq(schema.companies.clientId, auth.clientId),
       gte(schema.courseEditions.startDate, startOfYear),
@@ -183,7 +183,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     .from(schema.instructors)
     .leftJoin(schema.courseEditions, eq(schema.instructors.id, schema.courseEditions.instructorId))
     .leftJoin(schema.courses, eq(schema.courseEditions.courseId, schema.courses.id))
-    .leftJoin(schema.registrations, eq(schema.courseEditions.id, schema.registrations.editionId))
+    .leftJoin(schema.registrations, eq(schema.courseEditions.id, schema.registrations.courseEditionId))
     .where(and(
       eq(schema.instructors.clientId, auth.clientId),
       gte(schema.courseEditions.startDate, startOfYear),

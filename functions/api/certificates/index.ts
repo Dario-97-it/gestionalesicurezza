@@ -50,7 +50,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const completedRegistrations = await db.select({
       id: schema.registrations.id,
       studentId: schema.registrations.studentId,
-      editionId: schema.registrations.editionId,
+      editionId: schema.registrations.courseEditionId,
       studentFirstName: schema.students.firstName,
       studentLastName: schema.students.lastName,
       studentEmail: schema.students.email,
@@ -59,12 +59,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       courseId: schema.courses.id,
       courseTitle: schema.courses.title,
       courseCode: schema.courses.code,
-      courseValidityMonths: schema.courses.validityMonths,
+      courseValidityMonths: schema.courses.certificateValidityMonths,
       editionEndDate: schema.courseEditions.endDate,
     })
     .from(schema.registrations)
     .innerJoin(schema.students, eq(schema.registrations.studentId, schema.students.id))
-    .innerJoin(schema.courseEditions, eq(schema.registrations.editionId, schema.courseEditions.id))
+    .innerJoin(schema.courseEditions, eq(schema.registrations.courseEditionId, schema.courseEditions.id))
     .innerJoin(schema.courses, eq(schema.courseEditions.courseId, schema.courses.id))
     .leftJoin(schema.companies, eq(schema.students.companyId, schema.companies.id))
     .where(and(
