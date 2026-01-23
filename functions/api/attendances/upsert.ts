@@ -23,28 +23,35 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       courseEditionId: number;
       studentId: number;
       registrationId: number;
-      date: string;
+      sessionId?: number;
+      date?: string;
       present: boolean;
+      hoursAttended?: number;
     };
 
-    const { courseEditionId, studentId, registrationId, date, present } = body;
+    const { courseEditionId, studentId, registrationId, sessionId, date, present, hoursAttended } = body;
 
-    if (!courseEditionId || !studentId || !date) {
+    if (!courseEditionId || !studentId) {
       return new Response(JSON.stringify({ error: 'Dati mancanti' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
+    const attendanceDate = date || new Date().toISOString().split('T')[0];
+
     // Check if attendance already exists
+    const whereConditions = [
+      eq(schema.attendances.courseEditionId, courseEditionId),
+      eq(schema.attendances.studentId, studentId),
+      eq(schema.attendances.clientId, auth.clientId)
+    ];
+    if (attendanceDate) whereConditions.push(eq(schema.attendances.date, attendanceDate));
+    if (sessionId) whereConditions.push(eq(schema.attendances.sessionId, sessionId));
+
     const existing = await db.select()
       .from(schema.attendances)
-      .where(and(
-        eq(schema.attendances.courseEditionId, courseEditionId),
-        eq(schema.attendances.studentId, studentId),
-        eq(schema.attendances.date, date),
-        eq(schema.attendances.clientId, auth.clientId)
-      ))
+      .where(and(...whereConditions))
       .limit(1);
 
     let result;
@@ -55,11 +62,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       await db.update(schema.attendances)
         .set({ 
           status,
+          hoursAttended: hoursAttended || 0,
           updatedAt: new Date().toISOString()
         })
         .where(eq(schema.attendances.id, existing[0].id));
       
-      result = { ...existing[0], status };
+      result = { ...existing[0], status, hoursAttended: hoursAttended || 0 };
     } else {
       // Create new
       const insertResult = await db.insert(schema.attendances)
@@ -67,8 +75,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           courseEditionId,
           studentId,
           registrationId,
-          date,
+          sessionId,
+          date: attendanceDate,
           status,
+          hoursAttended: hoursAttended || 0,
           clientId: auth.clientId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()

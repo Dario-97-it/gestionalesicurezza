@@ -1,20 +1,42 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState } from '../components/ui/Table';
-import { attendancesApi, editionsApi, registrationsApi, coursesApi, studentsApi } from '../lib/api';
-import type { Attendance, CourseEdition, Registration, Course, Student } from '../types';
+import { editionsApi, registrationsApi, coursesApi, studentsApi } from '../lib/api';
+import type { CourseEdition, Registration, Course, Student } from '../types';
+
+interface EditionSession {
+  id: number;
+  editionId: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  hours: number;
+  location?: string;
+  notes?: string;
+}
+
+interface StudentAttendance {
+  registrationId: number;
+  studentId: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  companyName: string;
+  present: boolean;
+  hoursAttended: number;
+  sessionHours: number;
+}
 
 export default function Attendances() {
   const [editions, setEditions] = useState<CourseEdition[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [selectedEdition, setSelectedEdition] = useState<number | undefined>();
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [sessions, setSessions] = useState<EditionSession[]>([]);
+  const [selectedSession, setSelectedSession] = useState<number | undefined>();
+  const [attendances, setAttendances] = useState<StudentAttendance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,27 +55,68 @@ export default function Attendances() {
       setStudents(studentsRes.data || []);
     } catch (err) {
       console.error('Error fetching dropdown data:', err);
+      setError('Errore nel caricamento dei dati');
     }
   }, []);
 
-  // Fetch registrations for selected edition
-  const fetchRegistrations = useCallback(async (editionId: number) => {
+  // Fetch sessions for selected edition
+  const fetchSessions = useCallback(async (editionId: number) => {
     try {
-      const response = await registrationsApi.getAll(1, 100, editionId);
-      setRegistrations(response.data || []);
+      setIsLoading(true);
+      const response = await fetch(`/api/editions/${editionId}/sessions`);
+      if (!response.ok) throw new Error('Errore nel caricamento delle sessioni');
+      const data = await response.json();
+      setSessions(data.data || data || []);
+      setSelectedSession(undefined);
+      setAttendances([]);
     } catch (err) {
-      console.error('Error fetching registrations:', err);
-      setRegistrations([]);
+      console.error('Error fetching sessions:', err);
+      setSessions([]);
+      setError('Errore nel caricamento delle sessioni');
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  // Fetch attendances for selected edition and date
-  const fetchAttendances = useCallback(async (editionId: number, date: string) => {
-    setIsLoading(true);
-    setError(null);
+  // Fetch attendances for selected session
+  const fetchAttendances = useCallback(async (editionId: number, sessionId: number) => {
     try {
-      const response = await attendancesApi.getByEdition(editionId, date);
-      setAttendances(response || []);
+      setIsLoading(true);
+      setError(null);
+
+      // Get registrations for this edition
+      const regResponse = await registrationsApi.getAll(1, 100, editionId);
+      const registrations = regResponse.data || [];
+
+      // Get session details
+      const sessionResponse = await fetch(`/api/sessions/${sessionId}`);
+      const sessionData = await sessionResponse.json();
+      const session = sessionData.data || sessionData;
+
+      // Get attendances for this session
+      const attResponse = await fetch(`/api/attendances?editionId=${editionId}&sessionId=${sessionId}`);
+      const attData = await attResponse.json();
+      const existingAttendances = attData.data || [];
+
+      // Build student attendance list
+      const studentAttendances: StudentAttendance[] = registrations.map((reg: Registration) => {
+        const student = students.find(s => s.id === reg.studentId);
+        const existing = existingAttendances.find((a: any) => a.studentId === reg.studentId);
+        
+        return {
+          registrationId: reg.id,
+          studentId: reg.studentId || 0,
+          firstName: student?.firstName || '-',
+          lastName: student?.lastName || '-',
+          email: student?.email || '-',
+          companyName: student?.companyId ? `Company ${student.companyId}` : '-',
+          present: existing?.present || false,
+          hoursAttended: existing?.hoursAttended || 0,
+          sessionHours: session.hours || 0
+        };
+      });
+
+      setAttendances(studentAttendances);
     } catch (err: any) {
       console.error('Error fetching attendances:', err);
       setError('Errore nel caricamento delle presenze');
@@ -61,70 +124,80 @@ export default function Attendances() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [students]);
 
   // Load data on mount
   useEffect(() => {
     fetchDropdownData();
-  }, []);
+  }, [fetchDropdownData]);
 
-  // Load registrations and attendances when edition changes
+  // Load sessions when edition changes
   useEffect(() => {
     if (selectedEdition) {
-      fetchRegistrations(selectedEdition);
-      fetchAttendances(selectedEdition, selectedDate);
+      fetchSessions(selectedEdition);
     } else {
-      setRegistrations([]);
+      setSessions([]);
+      setSelectedSession(undefined);
       setAttendances([]);
     }
-  }, [selectedEdition, selectedDate]);
+  }, [selectedEdition, fetchSessions]);
+
+  // Load attendances when session changes
+  useEffect(() => {
+    if (selectedEdition && selectedSession) {
+      fetchAttendances(selectedEdition, selectedSession);
+    } else {
+      setAttendances([]);
+    }
+  }, [selectedSession, selectedEdition, fetchAttendances]);
 
   const handleEditionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     setSelectedEdition(value ? Number(value) : undefined);
   };
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedDate(e.target.value);
+  const handleSessionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setSelectedSession(value ? Number(value) : undefined);
   };
 
-  const toggleAttendance = async (studentId: number, registrationId: number) => {
-    if (!selectedEdition) return;
-    
+  const toggleAttendance = async (studentId: number, registrationId: number, sessionHours: number) => {
+    if (!selectedEdition || !selectedSession) return;
+
     setIsSaving(true);
     try {
-      // Find existing attendance
-      const existing = attendances.find(
-        a => a.studentId === studentId && a.courseEditionId === selectedEdition
-      );
-      
+      const existing = attendances.find(a => a.studentId === studentId);
       const newPresent = !existing?.present;
-      
-      await attendancesApi.upsert({
-        courseEditionId: selectedEdition,
-        studentId,
-        registrationId,
-        date: selectedDate,
-        present: newPresent,
+      const newHours = newPresent ? sessionHours : 0;
+
+      const response = await fetch('/api/attendances/upsert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseEditionId: selectedEdition,
+          studentId,
+          registrationId,
+          sessionId: selectedSession,
+          present: newPresent,
+          hoursAttended: newHours
+        })
       });
+
+      if (!response.ok) throw new Error('Errore nel salvataggio');
 
       // Update local state
       setAttendances(prev => {
         const index = prev.findIndex(a => a.studentId === studentId);
         if (index >= 0) {
           const updated = [...prev];
-          updated[index] = { ...updated[index], present: newPresent };
+          updated[index] = {
+            ...updated[index],
+            present: newPresent,
+            hoursAttended: newHours
+          };
           return updated;
-        } else {
-          return [...prev, { 
-            id: Date.now(), 
-            courseEditionId: selectedEdition, 
-            studentId, 
-            registrationId,
-            date: selectedDate, 
-            present: newPresent 
-          } as Attendance];
         }
+        return prev;
       });
 
       setMessage({ type: 'success', text: newPresent ? 'Presenza registrata' : 'Assenza registrata' });
@@ -138,21 +211,30 @@ export default function Attendances() {
   };
 
   const markAllPresent = async () => {
-    if (!selectedEdition || registrations.length === 0) return;
-    
+    if (!selectedEdition || !selectedSession || attendances.length === 0) return;
+
     setIsSaving(true);
     try {
-      await attendancesApi.markAll(selectedEdition, selectedDate, true);
-      
-      // Update local state
-      setAttendances(registrations.map(r => ({
-        id: Date.now() + r.id,
-        courseEditionId: selectedEdition,
-        studentId: r.studentId!,
-        registrationId: r.id,
-        date: selectedDate,
+      const sessionHours = attendances[0]?.sessionHours || 0;
+
+      const response = await fetch('/api/attendances/mark-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          editionId: selectedEdition,
+          sessionId: selectedSession,
+          present: true,
+          hoursAttended: sessionHours
+        })
+      });
+
+      if (!response.ok) throw new Error('Errore nel salvataggio');
+
+      setAttendances(prev => prev.map(a => ({
+        ...a,
         present: true,
-      } as Attendance)));
+        hoursAttended: a.sessionHours
+      })));
 
       setMessage({ type: 'success', text: 'Tutti presenti registrati' });
       setTimeout(() => setMessage(null), 2000);
@@ -165,21 +247,28 @@ export default function Attendances() {
   };
 
   const markAllAbsent = async () => {
-    if (!selectedEdition || registrations.length === 0) return;
-    
+    if (!selectedEdition || !selectedSession || attendances.length === 0) return;
+
     setIsSaving(true);
     try {
-      await attendancesApi.markAll(selectedEdition, selectedDate, false);
-      
-      // Update local state
-      setAttendances(registrations.map(r => ({
-        id: Date.now() + r.id,
-        courseEditionId: selectedEdition,
-        studentId: r.studentId!,
-        registrationId: r.id,
-        date: selectedDate,
+      const response = await fetch('/api/attendances/mark-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          editionId: selectedEdition,
+          sessionId: selectedSession,
+          present: false,
+          hoursAttended: 0
+        })
+      });
+
+      if (!response.ok) throw new Error('Errore nel salvataggio');
+
+      setAttendances(prev => prev.map(a => ({
+        ...a,
         present: false,
-      } as Attendance)));
+        hoursAttended: 0
+      })));
 
       setMessage({ type: 'success', text: 'Tutti assenti registrati' });
       setTimeout(() => setMessage(null), 2000);
@@ -191,12 +280,6 @@ export default function Attendances() {
     }
   };
 
-  const getStudentName = (studentId?: number) => {
-    if (!studentId) return '-';
-    const student = students.find(s => s.id === studentId);
-    return student ? `${student.firstName} ${student.lastName}` : '-';
-  };
-
   const getEditionInfo = (editionId: number) => {
     const edition = editions.find(e => e.id === editionId);
     if (!edition) return 'Edizione';
@@ -204,13 +287,18 @@ export default function Attendances() {
     return course?.title || 'Corso';
   };
 
-  const isPresent = (studentId: number) => {
-    const attendance = attendances.find(a => a.studentId === studentId);
-    return attendance?.present || false;
+  const getSessionInfo = (sessionId: number) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return 'Sessione';
+    const date = new Date(session.date).toLocaleDateString('it-IT');
+    return `${date} • ${session.startTime}-${session.endTime}`;
   };
 
   const presentCount = attendances.filter(a => a.present).length;
-  const totalCount = registrations.length;
+  const totalCount = attendances.length;
+  const totalHours = attendances.reduce((sum, a) => sum + a.hoursAttended, 0);
+  const totalSessionHours = attendances.length > 0 ? attendances[0].sessionHours * attendances.length : 0;
+  const frequencyPercent = totalSessionHours > 0 ? Math.round((totalHours / totalSessionHours) * 100) : 0;
 
   return (
     <Layout>
@@ -239,7 +327,7 @@ export default function Attendances() {
         {/* Filters */}
         <Card>
           <CardHeader>
-            <CardTitle>Seleziona Edizione e Data</CardTitle>
+            <CardTitle>Seleziona Edizione e Sessione</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -263,34 +351,51 @@ export default function Attendances() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={handleDateChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sessione</label>
+                <select
+                  value={selectedSession || ''}
+                  onChange={handleSessionChange}
+                  disabled={!selectedEdition || sessions.length === 0}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                >
+                  <option value="">Seleziona una sessione</option>
+                  {sessions.map(session => {
+                    const date = new Date(session.date).toLocaleDateString('it-IT');
+                    return (
+                      <option key={session.id} value={session.id}>
+                        {date} • {session.startTime}-{session.endTime} ({session.hours}h)
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Attendance Table */}
-        {selectedEdition && (
+        {selectedEdition && selectedSession && (
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <CardTitle>{getEditionInfo(selectedEdition)}</CardTitle>
                   <p className="text-sm text-gray-500 mt-1">
-                    Presenti: {presentCount} / {totalCount}
+                    Sessione: {getSessionInfo(selectedSession)}
                   </p>
+                  <div className="mt-2 flex gap-4 text-sm">
+                    <span>Presenti: <strong>{presentCount}/{totalCount}</strong></span>
+                    <span>Ore: <strong>{totalHours}/{totalSessionHours}</strong></span>
+                    <span className={`font-bold ${frequencyPercent >= 90 ? 'text-green-600' : 'text-red-600'}`}>
+                      Frequenza: {frequencyPercent}%
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={markAllPresent} variant="secondary" disabled={isSaving || registrations.length === 0}>
+                  <Button onClick={markAllPresent} variant="secondary" disabled={isSaving || attendances.length === 0}>
                     ✅ Tutti Presenti
                   </Button>
-                  <Button onClick={markAllAbsent} variant="secondary" disabled={isSaving || registrations.length === 0}>
+                  <Button onClick={markAllAbsent} variant="secondary" disabled={isSaving || attendances.length === 0}>
                     ❌ Tutti Assenti
                   </Button>
                 </div>
@@ -301,37 +406,49 @@ export default function Attendances() {
                 <div className="flex items-center justify-center h-64">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
-              ) : registrations.length === 0 ? (
-                <EmptyState
-                  title="Nessun iscritto"
-                  description="Non ci sono studenti iscritti a questa edizione"
-                />
+              ) : attendances.length === 0 ? (
+                <EmptyState title="Nessuno studente iscritto" description="Non ci sono studenti iscritti a questa edizione" />
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Studente</TableHead>
-                      <TableHead className="text-center">Presenza</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Azienda</TableHead>
+                      <TableHead className="text-center">Presente</TableHead>
+                      <TableHead className="text-center">Ore</TableHead>
+                      <TableHead className="text-center">Azione</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {registrations.map((registration) => (
-                      <TableRow key={registration.id}>
-                        <TableCell className="font-medium">
-                          {getStudentName(registration.studentId)}
+                    {attendances.map(att => (
+                      <TableRow key={att.studentId} className={att.present ? 'bg-green-50' : ''}>
+                        <TableCell className="font-medium">{att.firstName} {att.lastName}</TableCell>
+                        <TableCell>{att.email}</TableCell>
+                        <TableCell>{att.companyName}</TableCell>
+                        <TableCell className="text-center">
+                          {att.present ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✓ Presente
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              ✗ Assente
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
-                          <button
-                            onClick={() => toggleAttendance(registration.studentId!, registration.id)}
+                          {att.hoursAttended} / {att.sessionHours}h
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            onClick={() => toggleAttendance(att.studentId, att.registrationId, att.sessionHours)}
+                            variant={att.present ? 'danger' : 'primary'}
+                            size="sm"
                             disabled={isSaving}
-                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                              isPresent(registration.studentId!)
-                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200'
-                            }`}
                           >
-                            {isPresent(registration.studentId!) ? '✅ Presente' : '❌ Assente'}
-                          </button>
+                            {att.present ? 'Assente' : 'Presente'}
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -342,12 +459,14 @@ export default function Attendances() {
           </Card>
         )}
 
+        {/* Empty state */}
         {!selectedEdition && (
           <Card>
-            <CardContent className="py-12">
-              <div className="text-center text-gray-500">
-                <p className="text-lg">Seleziona un'edizione del corso per registrare le presenze</p>
-              </div>
+            <CardContent className="pt-12 pb-12">
+              <EmptyState 
+                title="Seleziona un'edizione" 
+                description="Scegli un'edizione e una sessione per visualizzare il registro presenze"
+              />
             </CardContent>
           </Card>
         )}

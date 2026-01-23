@@ -21,18 +21,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const db = drizzle(context.env.DB, { schema });
     const body = await context.request.json() as {
       editionId: number;
-      date: string;
+      sessionId?: number;
+      date?: string;
       present: boolean;
+      hoursAttended?: number;
     };
 
-    const { editionId, date, present } = body;
+    const { editionId, sessionId, date, present, hoursAttended } = body;
 
-    if (!editionId || !date) {
+    if (!editionId) {
       return new Response(JSON.stringify({ error: 'Dati mancanti' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
+
+    const attendanceDate = date || new Date().toISOString().split('T')[0];
 
     const status = present ? 'present' : 'absent';
 
@@ -57,11 +61,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         ))
         .limit(1);
 
+      const whereConditions = [
+        eq(schema.attendances.courseEditionId, editionId),
+        eq(schema.attendances.studentId, reg.studentId!),
+        eq(schema.attendances.clientId, auth.clientId)
+      ];
+      if (attendanceDate) whereConditions.push(eq(schema.attendances.date, attendanceDate));
+      if (sessionId) whereConditions.push(eq(schema.attendances.sessionId, sessionId));
+
       if (existing.length > 0) {
         // Update
         await db.update(schema.attendances)
           .set({ 
             status,
+            hoursAttended: hoursAttended || 0,
             updatedAt: new Date().toISOString()
           })
           .where(eq(schema.attendances.id, existing[0].id));
@@ -72,8 +85,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             courseEditionId: editionId,
             studentId: reg.studentId!,
             registrationId: reg.id,
-            date,
+            sessionId,
+            date: attendanceDate,
             status,
+            hoursAttended: hoursAttended || 0,
             clientId: auth.clientId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
