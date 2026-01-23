@@ -1,12 +1,22 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, and, asc } from 'drizzle-orm';
 import * as schema from '../../../../drizzle/schema';
+import nodemailer from 'nodemailer';
 
 interface Env {
   DB: D1Database;
   JWT_SECRET: string;
   RESEND_API_KEY?: string;
 }
+
+// Funzione per decriptare
+const decrypt = (encrypted: string): string => {
+  try {
+    return Buffer.from(encrypted, 'base64').toString('utf-8');
+  } catch {
+    return encrypted;
+  }
+};
 
 // Funzioni per generare iCalendar
 function formatICalDateLocal(date: Date): string {
@@ -200,7 +210,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     });
 
     const organizer = {
-      name: client?.companyName || 'SecurityTools',
+      name: client?.name || 'SecurityTools',
       email: client?.email || 'noreply@securitytools.it',
     };
 
@@ -213,17 +223,33 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       organizer
     );
 
-    // Se abbiamo Resend API key, invia l'email
-    if (env.RESEND_API_KEY) {
-      const emailResponse = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: `${organizer.name} <onboarding@resend.dev>`,
-          to: [edition.instructor.email],
+    // Prova prima con Gmail SMTP (se configurato)
+    let emailSent = false;
+    let emailError: string | null = null;
+
+    try {
+      // Recupera le credenziali Gmail dal database
+      const emailSettings = await db.query.emailSettings.findFirst({
+        where: eq(schema.emailSettings.clientId, auth.clientId),
+      });
+
+      if (emailSettings) {
+        const gmailEmail = emailSettings.email;
+        const gmailPassword = decrypt(emailSettings.password);
+
+        // Crea il transporter Nodemailer
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: gmailEmail,
+            pass: gmailPassword
+          }
+        });
+
+        // Invia l'email
+        await transporter.sendMail({
+          from: gmailEmail,
+          to: edition.instructor.email,
           subject: `Invito: ${edition.course?.title || 'Corso'} - ${sessions.length} sessioni`,
           html: `
             <h2>Invito al corso: ${edition.course?.title || 'Corso'}</h2>
@@ -260,25 +286,93 @@ export const onRequest: PagesFunction<Env> = async (context) => {
           attachments: [
             {
               filename: `corso-${edition.id}.ics`,
-              content: Buffer.from(icsContent).toString('base64'),
+              content: icsContent,
+              contentType: 'text/calendar; method=REQUEST'
             }
           ],
-        }),
-      });
-
-      if (!emailResponse.ok) {
-        const errorData = await emailResponse.json();
-        console.error('Resend error:', errorData);
-        // Fallback: restituisci il file .ics per download manuale
-        return new Response(JSON.stringify({ 
-          success: true, 
-          message: 'Email non inviata, ma puoi scaricare il file calendario',
-          icsContent,
-          emailError: true
-        }), {
-          headers: { 'Content-Type': 'application/json' },
         });
+
+        emailSent = true;
+        console.log(`Email inviata via Gmail SMTP a ${edition.instructor.email}`);
       }
+    } catch (gmailError: any) {
+      console.error('Gmail SMTP error:', gmailError);
+      emailError = gmailError.message;
+    }
+
+    // Fallback: se Gmail non è configurato o ha fallito, prova con Resend
+    if (!emailSent && env.RESEND_API_KEY) {
+      try {
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: `${organizer.name} <onboarding@resend.dev>`,
+            to: [edition.instructor.email],
+            subject: `Invito: ${edition.course?.title || 'Corso'} - ${sessions.length} sessioni`,
+            html: `
+              <h2>Invito al corso: ${edition.course?.title || 'Corso'}</h2>
+              <p>Gentile ${edition.instructor.firstName} ${edition.instructor.lastName},</p>
+              <p>Sei stato assegnato come docente per il seguente corso:</p>
+              <ul>
+                <li><strong>Corso:</strong> ${edition.course?.title}</li>
+                <li><strong>Location:</strong> ${edition.location}</li>
+                <li><strong>Sessioni:</strong> ${sessions.length}</li>
+                <li><strong>Totale ore:</strong> ${sessions.reduce((sum, s) => sum + s.hours, 0)}</li>
+              </ul>
+              <h3>Calendario sessioni:</h3>
+              <table border="1" cellpadding="8" cellspacing="0">
+                <tr>
+                  <th>#</th>
+                  <th>Data</th>
+                  <th>Orario</th>
+                  <th>Ore</th>
+                  <th>Location</th>
+                </tr>
+                ${sessions.map((s, i) => `
+                  <tr>
+                    <td>${i + 1}</td>
+                    <td>${new Date(s.sessionDate).toLocaleDateString('it-IT')}</td>
+                    <td>${s.startTime} - ${s.endTime}</td>
+                    <td>${s.hours}h</td>
+                    <td>${s.location || edition.location}</td>
+                  </tr>
+                `).join('')}
+              </table>
+              <p>In allegato trovi il file calendario (.ics) da importare nel tuo calendario.</p>
+              <p>Cordiali saluti,<br>${organizer.name}</p>
+            `,
+            attachments: [
+              {
+                filename: `corso-${edition.id}.ics`,
+                content: Buffer.from(icsContent).toString('base64'),
+              }
+            ],
+          }),
+        });
+
+        if (emailResponse.ok) {
+          emailSent = true;
+          console.log(`Email inviata via Resend a ${edition.instructor.email}`);
+        } else {
+          const errorData = await emailResponse.json();
+          console.error('Resend error:', errorData);
+          emailError = 'Errore Resend API';
+        }
+      } catch (resendError: any) {
+        console.error('Resend error:', resendError);
+        emailError = resendError.message;
+      }
+    }
+
+    // Se l'email è stata inviata, aggiorna il database
+    if (emailSent) {
+      await db.update(schema.editionSessions)
+        .set({ calendarInviteSentAt: new Date().toISOString() })
+        .where(eq(schema.editionSessions.editionId, editionId));
 
       return new Response(JSON.stringify({ 
         success: true, 
@@ -287,19 +381,23 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         headers: { 'Content-Type': 'application/json' },
       });
     } else {
-      // Senza Resend, restituisci il file .ics per download
+      // Se nessun metodo di invio ha funzionato, restituisci il file .ics per download
       return new Response(JSON.stringify({ 
         success: true, 
-        message: 'File calendario generato (email non configurata)',
+        message: 'File calendario generato (email non inviata)',
         icsContent,
-        downloadOnly: true
+        downloadOnly: true,
+        error: emailError || 'Nessun metodo di invio email configurato'
       }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
   } catch (error) {
     console.error('Error sending invite:', error);
-    return new Response(JSON.stringify({ error: 'Errore nell\'invio dell\'invito' }), {
+    return new Response(JSON.stringify({ 
+      error: 'Errore nell\'invio dell\'invito',
+      details: (error as any).message
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
