@@ -22,9 +22,10 @@ const api: AxiosInstance = axios.create({
   withCredentials: true,
 });
 
-// Token management
-let accessToken: string | null = localStorage.getItem('accessToken');
-let refreshToken: string | null = localStorage.getItem('refreshToken');
+// Token management - SEMPRE leggi da localStorage per evitare problemi di sincronizzazione
+const getAccessToken = (): string | null => localStorage.getItem('accessToken');
+const getRefreshToken = (): string | null => localStorage.getItem('refreshToken');
+
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
@@ -42,11 +43,12 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token - SEMPRE leggi da localStorage
 api.interceptors.request.use(
   (config) => {
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`;
+    const token = getAccessToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -76,8 +78,10 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      const currentRefreshToken = getRefreshToken();
+      
       // Se non abbiamo un refresh token, vai al login
-      if (!refreshToken) {
+      if (!currentRefreshToken) {
         isRefreshing = false;
         clearTokens();
         window.location.href = '/login';
@@ -87,7 +91,7 @@ api.interceptors.response.use(
       try {
         // Chiama refresh con il refreshToken nel body
         const response = await axios.post('/api/auth/refresh', 
-          { refreshToken },
+          { refreshToken: currentRefreshToken },
           { withCredentials: true }
         );
         
@@ -118,9 +122,8 @@ api.interceptors.response.use(
   }
 );
 
-// Set tokens
+// Set tokens - salva in localStorage
 export const setTokens = (newAccessToken: string | null, newRefreshToken?: string | null) => {
-  accessToken = newAccessToken;
   if (newAccessToken) {
     localStorage.setItem('accessToken', newAccessToken);
   } else {
@@ -128,7 +131,6 @@ export const setTokens = (newAccessToken: string | null, newRefreshToken?: strin
   }
   
   if (newRefreshToken !== undefined) {
-    refreshToken = newRefreshToken;
     if (newRefreshToken) {
       localStorage.setItem('refreshToken', newRefreshToken);
     } else {
@@ -139,8 +141,6 @@ export const setTokens = (newAccessToken: string | null, newRefreshToken?: strin
 
 // Clear tokens
 export const clearTokens = () => {
-  accessToken = null;
-  refreshToken = null;
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
 };
@@ -176,8 +176,9 @@ export const authApi = {
   },
 
   refresh: async (): Promise<{ accessToken: string; refreshToken: string }> => {
+    const currentRefreshToken = getRefreshToken();
     const response = await axios.post('/api/auth/refresh', 
-      { refreshToken },
+      { refreshToken: currentRefreshToken },
       { withCredentials: true }
     );
     if (response.data.accessToken) {
@@ -353,11 +354,9 @@ export const attendancesApi = {
     return response.data;
   },
 
-  getByEdition: async (editionId: number, date?: string): Promise<Attendance[]> => {
-    const params = new URLSearchParams({ editionId: String(editionId) });
-    if (date) params.append('date', date);
-    const response = await api.get(`/attendances?${params}`);
-    return response.data.data || response.data;
+  getById: async (id: number): Promise<Attendance> => {
+    const response = await api.get(`/attendances/${id}`);
+    return response.data;
   },
 
   create: async (data: Partial<Attendance>): Promise<Attendance> => {
@@ -370,13 +369,8 @@ export const attendancesApi = {
     return response.data;
   },
 
-  upsert: async (data: { courseEditionId: number; studentId: number; registrationId: number; date: string; present: boolean }): Promise<Attendance> => {
-    const response = await api.post('/attendances/upsert', data);
-    return response.data;
-  },
-
-  markAll: async (editionId: number, date: string, present: boolean): Promise<void> => {
-    await api.post('/attendances/mark-all', { editionId, date, present });
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/attendances/${id}`);
   },
 
   bulkCreate: async (data: Partial<Attendance>[]): Promise<Attendance[]> => {
