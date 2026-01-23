@@ -1,11 +1,11 @@
 /**
  * API Companies - Gestione aziende clienti
- * GET /api/companies - Lista aziende
+ * GET /api/companies - Lista aziende con paginazione
  * POST /api/companies - Crea nuova azienda
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, like, or, asc, desc, and, sql } from 'drizzle-orm';
+import { eq, like, or, asc, desc, and, sql, count } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
 
 interface Env {
@@ -19,7 +19,7 @@ interface AuthContext {
   role: string;
 }
 
-// GET - Lista aziende
+// GET - Lista aziende con paginazione
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
   const auth = (context as any).auth as AuthContext;
@@ -33,33 +33,50 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   const url = new URL(request.url);
   const search = url.searchParams.get('search') || '';
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
+  const offset = (page - 1) * pageSize;
 
   try {
     const db = drizzle(env.DB, { schema });
 
-    let query = db.select()
-      .from(schema.companies)
-      .where(eq(schema.companies.clientId, auth.clientId))
-      .orderBy(asc(schema.companies.name));
-
+    // Build where condition
+    let whereCondition = eq(schema.companies.clientId, auth.clientId);
+    
     if (search) {
-      query = db.select()
-        .from(schema.companies)
-        .where(
-          and(
-            eq(schema.companies.clientId, auth.clientId),
-            or(
-              like(schema.companies.name, `%${search}%`),
-              like(schema.companies.vatNumber, `%${search}%`)
-            )
-          )
+      whereCondition = and(
+        eq(schema.companies.clientId, auth.clientId),
+        or(
+          like(schema.companies.name, `%${search}%`),
+          like(schema.companies.vatNumber, `%${search}%`),
+          like(schema.companies.email, `%${search}%`)
         )
-        .orderBy(asc(schema.companies.name));
+      )!;
     }
 
-    const companies = await query;
+    // Get total count
+    const countResult = await db.select({ count: count() })
+      .from(schema.companies)
+      .where(whereCondition);
+    const total = countResult[0]?.count || 0;
 
-    return new Response(JSON.stringify(companies), {
+    // Get paginated data
+    const companies = await db.select()
+      .from(schema.companies)
+      .where(whereCondition)
+      .orderBy(asc(schema.companies.name))
+      .limit(pageSize)
+      .offset(offset);
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    return new Response(JSON.stringify({
+      data: companies,
+      page,
+      pageSize,
+      total,
+      totalPages,
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

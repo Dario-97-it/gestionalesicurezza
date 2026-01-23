@@ -1,11 +1,11 @@
 /**
  * API Courses - Gestione catalogo corsi
- * GET /api/courses - Lista corsi
+ * GET /api/courses - Lista corsi con paginazione
  * POST /api/courses - Crea nuovo corso
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, asc, and } from 'drizzle-orm';
+import { eq, asc, and, like, or, sql, count } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
 
 interface Env {
@@ -19,7 +19,7 @@ interface AuthContext {
   role: string;
 }
 
-// GET - Lista corsi
+// GET - Lista corsi con paginazione
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
   const auth = (context as any).auth as AuthContext;
@@ -33,21 +33,54 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   const url = new URL(request.url);
   const activeOnly = url.searchParams.get('activeOnly') === 'true';
+  const search = url.searchParams.get('search') || '';
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
+  const offset = (page - 1) * pageSize;
 
   try {
     const db = drizzle(env.DB, { schema });
 
-    const conditions = [eq(schema.courses.clientId, auth.clientId)];
+    // Build conditions
+    const conditions: any[] = [eq(schema.courses.clientId, auth.clientId)];
+    
     if (activeOnly) {
       conditions.push(eq(schema.courses.isActive, true));
     }
+    
+    if (search) {
+      conditions.push(
+        or(
+          like(schema.courses.title, `%${search}%`),
+          like(schema.courses.code, `%${search}%`),
+          like(schema.courses.type, `%${search}%`)
+        )
+      );
+    }
 
+    // Get total count
+    const countResult = await db.select({ count: count() })
+      .from(schema.courses)
+      .where(and(...conditions));
+    const total = countResult[0]?.count || 0;
+
+    // Get paginated data
     const courses = await db.select()
       .from(schema.courses)
       .where(and(...conditions))
-      .orderBy(asc(schema.courses.title));
+      .orderBy(asc(schema.courses.title))
+      .limit(pageSize)
+      .offset(offset);
 
-    return new Response(JSON.stringify(courses), {
+    const totalPages = Math.ceil(total / pageSize);
+
+    return new Response(JSON.stringify({
+      data: courses,
+      page,
+      pageSize,
+      total,
+      totalPages,
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -78,8 +111,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const { title, code, type, durationHours, defaultPrice, description, certificateValidityMonths, isActive } = body;
 
     // Validazione
-    if (!title || !code || !type || !durationHours || defaultPrice === undefined) {
-      return new Response(JSON.stringify({ error: 'Titolo, codice, tipo, durata e prezzo sono obbligatori' }), {
+    if (!title || !code) {
+      return new Response(JSON.stringify({ error: 'Titolo e codice sono obbligatori' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -111,12 +144,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       clientId: auth.clientId,
       title,
       code,
-      type,
-      durationHours,
-      defaultPrice,
+      type: type || 'base',
+      durationHours: durationHours || 0,
+      defaultPrice: defaultPrice || 0,
       description: description || null,
       certificateValidityMonths: certificateValidityMonths || null,
-      isActive: isActive !== false,
+      isActive: isActive !== false && isActive !== 0,
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.courses.id });

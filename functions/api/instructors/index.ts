@@ -1,11 +1,11 @@
 /**
  * API Instructors - Gestione docenti
- * GET /api/instructors - Lista docenti
+ * GET /api/instructors - Lista docenti con paginazione
  * POST /api/instructors - Crea nuovo docente
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, asc, and } from 'drizzle-orm';
+import { eq, asc, and, like, or, count } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
 
 interface Env {
@@ -19,9 +19,9 @@ interface AuthContext {
   role: string;
 }
 
-// GET - Lista docenti
+// GET - Lista docenti con paginazione
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const { env } = context;
+  const { env, request } = context;
   const auth = (context as any).auth as AuthContext;
 
   if (!auth) {
@@ -31,15 +31,53 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
   }
 
+  const url = new URL(request.url);
+  const search = url.searchParams.get('search') || '';
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
+  const offset = (page - 1) * pageSize;
+
   try {
     const db = drizzle(env.DB, { schema });
 
+    // Build conditions
+    let whereCondition = eq(schema.instructors.clientId, auth.clientId);
+    
+    if (search) {
+      whereCondition = and(
+        eq(schema.instructors.clientId, auth.clientId),
+        or(
+          like(schema.instructors.firstName, `%${search}%`),
+          like(schema.instructors.lastName, `%${search}%`),
+          like(schema.instructors.email, `%${search}%`),
+          like(schema.instructors.specialization, `%${search}%`)
+        )
+      )!;
+    }
+
+    // Get total count
+    const countResult = await db.select({ count: count() })
+      .from(schema.instructors)
+      .where(whereCondition);
+    const total = countResult[0]?.count || 0;
+
+    // Get paginated data
     const instructors = await db.select()
       .from(schema.instructors)
-      .where(eq(schema.instructors.clientId, auth.clientId))
-      .orderBy(asc(schema.instructors.lastName), asc(schema.instructors.firstName));
+      .where(whereCondition)
+      .orderBy(asc(schema.instructors.lastName), asc(schema.instructors.firstName))
+      .limit(pageSize)
+      .offset(offset);
 
-    return new Response(JSON.stringify(instructors), {
+    const totalPages = Math.ceil(total / pageSize);
+
+    return new Response(JSON.stringify({
+      data: instructors,
+      page,
+      pageSize,
+      total,
+      totalPages,
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -67,7 +105,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const body = await request.json() as any;
-    const { firstName, lastName, email, phone, specialization, hourlyRate, notes } = body;
+    const { firstName, lastName, email, phone, specialization, hourlyRate, notes, bio, isActive } = body;
 
     // Validazione
     if (!firstName || !lastName) {
@@ -90,6 +128,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       specialization: specialization || null,
       hourlyRate: hourlyRate || null,
       notes: notes || null,
+      bio: bio || null,
+      isActive: isActive !== false && isActive !== 0,
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.instructors.id });

@@ -35,8 +35,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const search = url.searchParams.get('search') || '';
   const companyId = url.searchParams.get('companyId');
   const page = parseInt(url.searchParams.get('page') || '1');
-  const limit = parseInt(url.searchParams.get('limit') || '50');
-  const offset = (page - 1) * limit;
+  const pageSize = parseInt(url.searchParams.get('pageSize') || url.searchParams.get('limit') || '20');
+  const offset = (page - 1) * pageSize;
 
   try {
     const db = drizzle(env.DB, { schema });
@@ -64,7 +64,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       .from(schema.students)
       .where(and(...conditions))
       .orderBy(asc(schema.students.lastName), asc(schema.students.firstName))
-      .limit(limit)
+      .limit(pageSize)
       .offset(offset);
 
     // Count totale
@@ -77,8 +77,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       data: students,
       total,
       page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

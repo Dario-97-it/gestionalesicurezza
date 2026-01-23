@@ -1,12 +1,12 @@
 /**
  * API Registrations - Gestione iscrizioni
- * GET /api/registrations - Lista iscrizioni
+ * GET /api/registrations - Lista iscrizioni con paginazione
  * POST /api/registrations - Crea nuova iscrizione
  * POST /api/registrations/bulk - Iscrizione multipla
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, count, desc } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
 
 interface Env {
@@ -20,7 +20,7 @@ interface AuthContext {
   role: string;
 }
 
-// GET - Lista iscrizioni
+// GET - Lista iscrizioni con paginazione
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
   const auth = (context as any).auth as AuthContext;
@@ -33,14 +33,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   const url = new URL(request.url);
-  const courseEditionId = url.searchParams.get('courseEditionId');
+  const courseEditionId = url.searchParams.get('courseEditionId') || url.searchParams.get('editionId');
   const studentId = url.searchParams.get('studentId');
   const companyId = url.searchParams.get('companyId');
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
+  const offset = (page - 1) * pageSize;
 
   try {
     const db = drizzle(env.DB, { schema });
 
-    const conditions = [eq(schema.registrations.clientId, auth.clientId)];
+    const conditions: any[] = [eq(schema.registrations.clientId, auth.clientId)];
 
     if (courseEditionId) {
       conditions.push(eq(schema.registrations.courseEditionId, parseInt(courseEditionId)));
@@ -52,12 +55,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       conditions.push(eq(schema.registrations.companyId, parseInt(companyId)));
     }
 
+    // Get total count
+    const countResult = await db.select({ count: count() })
+      .from(schema.registrations)
+      .where(and(...conditions));
+    const total = countResult[0]?.count || 0;
+
     const registrations = await db.select({
       id: schema.registrations.id,
       studentId: schema.registrations.studentId,
       courseEditionId: schema.registrations.courseEditionId,
       companyId: schema.registrations.companyId,
       status: schema.registrations.status,
+      price: schema.registrations.priceApplied,
       priceApplied: schema.registrations.priceApplied,
       registrationDate: schema.registrations.registrationDate,
       notes: schema.registrations.notes,
@@ -67,9 +77,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     })
     .from(schema.registrations)
     .innerJoin(schema.students, eq(schema.registrations.studentId, schema.students.id))
-    .where(and(...conditions));
+    .where(and(...conditions))
+    .orderBy(desc(schema.registrations.registrationDate))
+    .limit(pageSize)
+    .offset(offset);
 
-    return new Response(JSON.stringify(registrations), {
+    const totalPages = Math.ceil(total / pageSize);
+
+    return new Response(JSON.stringify({
+      data: registrations,
+      page,
+      pageSize,
+      total,
+      totalPages,
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -101,11 +122,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // Supporta sia singola iscrizione che bulk
     const studentIds = body.studentIds || [body.studentId];
-    const { courseEditionId, priceApplied, notes } = body;
+    const courseEditionId = body.courseEditionId;
+    const priceApplied = body.priceApplied || body.price || 0;
+    const notes = body.notes;
+    const status = body.status || 'confirmed';
 
     // Validazione
-    if (!studentIds.length || !courseEditionId || priceApplied === undefined) {
-      return new Response(JSON.stringify({ error: 'Studente, edizione e prezzo sono obbligatori' }), {
+    if (!studentIds.length || !studentIds[0] || !courseEditionId) {
+      return new Response(JSON.stringify({ error: 'Studente e edizione sono obbligatori' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -196,7 +220,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         companyId: student[0].companyId,
         priceApplied,
         notes: notes || null,
-        status: 'confirmed',
+        status,
         registrationDate: now,
         createdAt: now,
         updatedAt: now,

@@ -1,11 +1,11 @@
 /**
  * API Course Editions - Gestione edizioni corsi
- * GET /api/editions - Lista edizioni con filtri
+ * GET /api/editions - Lista edizioni con filtri e paginazione
  * POST /api/editions - Crea nuova edizione
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, desc, and, gte, lte, sql } from 'drizzle-orm';
+import { eq, desc, and, gte, lte, sql, count } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
 
 interface Env {
@@ -19,7 +19,7 @@ interface AuthContext {
   role: string;
 }
 
-// GET - Lista edizioni con filtri
+// GET - Lista edizioni con filtri e paginazione
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
   const auth = (context as any).auth as AuthContext;
@@ -36,12 +36,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const status = url.searchParams.get('status');
   const startDateFrom = url.searchParams.get('startDateFrom');
   const startDateTo = url.searchParams.get('startDateTo');
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
+  const offset = (page - 1) * pageSize;
 
   try {
     const db = drizzle(env.DB, { schema });
 
     // Build conditions
-    const conditions = [eq(schema.courseEditions.clientId, auth.clientId)];
+    const conditions: any[] = [eq(schema.courseEditions.clientId, auth.clientId)];
 
     if (courseId) {
       conditions.push(eq(schema.courseEditions.courseId, parseInt(courseId)));
@@ -55,6 +58,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     if (startDateTo) {
       conditions.push(lte(schema.courseEditions.startDate, startDateTo));
     }
+
+    // Get total count
+    const countResult = await db.select({ count: count() })
+      .from(schema.courseEditions)
+      .where(and(...conditions));
+    const total = countResult[0]?.count || 0;
 
     // Query con join per ottenere info corso
     const editions = await db.select({
@@ -70,6 +79,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       dedicatedCompanyId: schema.courseEditions.dedicatedCompanyId,
       instructor: schema.courseEditions.instructor,
       status: schema.courseEditions.status,
+      notes: schema.courseEditions.notes,
       createdAt: schema.courseEditions.createdAt,
       courseTitle: schema.courses.title,
       courseCode: schema.courses.code,
@@ -79,11 +89,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     .from(schema.courseEditions)
     .innerJoin(schema.courses, eq(schema.courseEditions.courseId, schema.courses.id))
     .where(and(...conditions))
-    .orderBy(desc(schema.courseEditions.startDate));
+    .orderBy(desc(schema.courseEditions.startDate))
+    .limit(pageSize)
+    .offset(offset);
 
     // Conta iscritti per ogni edizione
     const editionsWithCount = await Promise.all(editions.map(async (edition) => {
-      const countResult = await db.select({ count: sql<number>`count(*)` })
+      const enrolledResult = await db.select({ count: sql<number>`count(*)` })
         .from(schema.registrations)
         .where(
           and(
@@ -94,11 +106,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       
       return {
         ...edition,
-        enrolledCount: Number(countResult[0]?.count || 0),
+        enrolledCount: Number(enrolledResult[0]?.count || 0),
       };
     }));
 
-    return new Response(JSON.stringify(editionsWithCount), {
+    const totalPages = Math.ceil(total / pageSize);
+
+    return new Response(JSON.stringify({
+      data: editionsWithCount,
+      page,
+      pageSize,
+      total,
+      totalPages,
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -128,12 +148,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const body = await request.json() as any;
     const { 
       courseId, startDate, endDate, location, maxParticipants, price, 
-      customPrice, dedicatedCompanyId, instructorId, instructor, status 
+      customPrice, dedicatedCompanyId, instructorId, instructor, status, notes 
     } = body;
 
     // Validazione
-    if (!courseId || !startDate || !endDate || !location || !maxParticipants || price === undefined) {
-      return new Response(JSON.stringify({ error: 'Corso, date, luogo, capienza e prezzo sono obbligatori' }), {
+    if (!courseId || !startDate) {
+      return new Response(JSON.stringify({ error: 'Corso e data inizio sono obbligatori' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -185,15 +205,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       clientId: auth.clientId,
       courseId,
       startDate,
-      endDate,
-      location,
-      maxParticipants,
-      price,
+      endDate: endDate || null,
+      location: location || null,
+      maxParticipants: maxParticipants || 20,
+      price: price || course[0].defaultPrice || 0,
       customPrice: customPrice || null,
       dedicatedCompanyId: dedicatedCompanyId || null,
       instructorId: instructorId || null,
       instructor: instructor || null,
       status: status || 'scheduled',
+      notes: notes || null,
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.courseEditions.id });
