@@ -377,6 +377,22 @@ export const attendancesApi = {
     const response = await api.post('/attendances/bulk', { attendances: data });
     return response.data;
   },
+
+  getByEdition: async (editionId: number, date?: string): Promise<Attendance[]> => {
+    const params = new URLSearchParams({ editionId: String(editionId) });
+    if (date) params.append('date', date);
+    const response = await api.get(`/attendances?${params}`);
+    return response.data.data || response.data || [];
+  },
+
+  upsert: async (data: { courseEditionId: number; studentId: number; registrationId: number; date: string; present: boolean }): Promise<Attendance> => {
+    const response = await api.post('/attendances/upsert', data);
+    return response.data;
+  },
+
+  markAll: async (editionId: number, date: string, present: boolean): Promise<void> => {
+    await api.post('/attendances/mark-all', { editionId, date, present });
+  },
 };
 
 // Instructors API

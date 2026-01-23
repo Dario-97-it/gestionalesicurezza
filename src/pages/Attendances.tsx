@@ -24,7 +24,7 @@ export default function Attendances() {
   const fetchDropdownData = useCallback(async () => {
     try {
       const [editionsRes, coursesRes, studentsRes] = await Promise.all([
-        editionsApi.getAll(1, 100, 'in_progress'),
+        editionsApi.getAll(1, 100),
         coursesApi.getAll(1, 100),
         studentsApi.getAll(1, 100)
       ]);
