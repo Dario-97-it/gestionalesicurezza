@@ -138,18 +138,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
+    // Validazione campi obbligatori
+    if (!type) {
+      return new Response(JSON.stringify({ error: 'Il tipo corso è obbligatorio' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Crea corso
     const now = new Date().toISOString();
     const result = await db.insert(schema.courses).values({
       clientId: auth.clientId,
-      title,
-      code,
-      type: type || 'base',
-      durationHours: durationHours || 0,
-      defaultPrice: defaultPrice || 0,
-      description: description || null,
-      certificateValidityMonths: certificateValidityMonths || null,
-      isActive: isActive !== false && isActive !== 0,
+      title: title.trim(),
+      code: code.trim().toUpperCase(),
+      type: type,
+      durationHours: parseInt(String(durationHours)) || 0,
+      defaultPrice: parseInt(String(defaultPrice)) || 0,
+      description: description ? description.trim() : null,
+      certificateValidityMonths: certificateValidityMonths ? parseInt(String(certificateValidityMonths)) : null,
+      isActive: isActive === true || isActive === 1 || isActive === 'true',
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.courses.id });
