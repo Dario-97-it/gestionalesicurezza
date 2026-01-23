@@ -23,8 +23,7 @@ interface StudentRow {
   province?: string;
   postalCode?: string;
   country?: string;
-  companyName?: string;
-  companyVatNumber?: string;
+  companyId?: string | number; // ID dell'azienda (obbligatorio)
   notes?: string;
 }
 
@@ -33,7 +32,6 @@ interface ImportResult {
   totalRows: number;
   imported: number;
   skipped: number;
-  companiesCreated: number;
   errors: Array<{
     row: number;
     field: string;
@@ -170,7 +168,6 @@ app.post('/', async (c) => {
       totalRows: rows.length,
       imported: 0,
       skipped: 0,
-      companiesCreated: 0,
       errors: [],
       warnings: [],
       duplicates: [],
@@ -368,37 +365,41 @@ app.post('/', async (c) => {
         });
       }
 
-      // Gestione azienda
+      // Validazione azienda (obbligatoria)
+      const companyIdStr = row.companyId?.toString().trim();
       let companyId: number | null = null;
-      const companyName = row.companyName?.trim();
-      const companyVat = row.companyVatNumber?.trim().toUpperCase();
 
-      if (companyVat) {
-        if (!validateVatNumber(companyVat)) {
-          result.warnings.push({
+      if (!companyIdStr) {
+        result.errors.push({
+          row: rowNum,
+          field: 'companyId',
+          message: 'L\'azienda è obbligatoria',
+        });
+        hasError = true;
+      } else {
+        const companyIdNum = parseInt(companyIdStr, 10);
+        if (isNaN(companyIdNum)) {
+          result.errors.push({
             row: rowNum,
-            field: 'companyVatNumber',
-            message: 'P.IVA azienda non valida',
-            value: companyVat,
+            field: 'companyId',
+            message: 'ID azienda non valido (deve essere un numero)',
+            value: companyIdStr,
           });
+          hasError = true;
         } else {
-          // Cerca azienda per P.IVA
-          const existingId = companyByVat.get(companyVat);
-          if (existingId) {
-            companyId = existingId;
-          } else if (companyName) {
-            // Azienda da creare
-            companiesToCreate.set(companyName.toLowerCase(), companyVat);
+          // Verifica che l'azienda esista
+          const companyExists = existingCompanies.some(c => c.id === companyIdNum);
+          if (!companyExists) {
+            result.errors.push({
+              row: rowNum,
+              field: 'companyId',
+              message: `Azienda con ID ${companyIdNum} non trovata`,
+              value: companyIdStr,
+            });
+            hasError = true;
+          } else {
+            companyId = companyIdNum;
           }
-        }
-      } else if (companyName) {
-        // Cerca azienda per nome
-        const existingId = companyByName.get(companyName.toLowerCase());
-        if (existingId) {
-          companyId = existingId;
-        } else {
-          // Azienda da creare senza P.IVA
-          companiesToCreate.set(companyName.toLowerCase(), '');
         }
       }
 
@@ -416,36 +417,11 @@ app.post('/', async (c) => {
       return c.json(result);
     }
 
-    // Crea le aziende mancanti
-    const newCompanyIds = new Map<string, number>();
-    for (const [name, vatNumber] of companiesToCreate) {
-      try {
-        const insertResult = await db.insert(schema.companies).values({
-          clientId,
-          name: name.charAt(0).toUpperCase() + name.slice(1),
-          vatNumber: vatNumber || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }).returning({ id: schema.companies.id });
-        
-        if (insertResult[0]) {
-          newCompanyIds.set(name, insertResult[0].id);
-          result.companiesCreated++;
-        }
-      } catch (err) {
-        console.error('Error creating company:', err);
-      }
-    }
+    // Non creiamo più aziende automaticamente
 
     // Importa gli studenti
     for (const { data: row, companyId: existingCompanyId } of validRows) {
       try {
-        // Determina l'ID azienda finale
-        let finalCompanyId = existingCompanyId;
-        if (!finalCompanyId && row.companyName) {
-          finalCompanyId = newCompanyIds.get(row.companyName.toLowerCase()) || null;
-        }
-
         await db.insert(schema.students).values({
           clientId,
           firstName: row.firstName.trim(),
@@ -460,7 +436,7 @@ app.post('/', async (c) => {
           province: row.province?.trim().toUpperCase() || null,
           postalCode: row.postalCode?.trim() || null,
           country: row.country?.trim() || 'Italia',
-          companyId: finalCompanyId,
+          companyId: existingCompanyId,
           notes: row.notes?.trim() || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),

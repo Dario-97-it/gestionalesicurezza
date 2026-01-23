@@ -66,13 +66,13 @@ const IMPORT_CONFIGS = {
   students: {
     title: 'Studenti',
     icon: '👨‍🎓',
-    description: 'Importa studenti con dati anagrafici e azienda di appartenenza',
-    requiredFields: ['firstName', 'lastName'],
-    optionalFields: ['email', 'phone', 'taxCode', 'birthDate', 'birthPlace', 'address', 'city', 'province', 'postalCode', 'country', 'companyName', 'companyVatNumber', 'notes'],
+    description: 'Importa studenti con dati anagrafici. L\'azienda deve essere già esistente nel database.',
+    requiredFields: ['firstName', 'lastName', 'companyId'],
+    optionalFields: ['email', 'phone', 'taxCode', 'birthDate', 'birthPlace', 'address', 'city', 'province', 'postalCode', 'country', 'notes'],
     templateHeaders: [
       'Nome*', 'Cognome*', 'Email', 'Telefono', 'Codice Fiscale', 'Data Nascita', 
       'Luogo Nascita', 'Indirizzo', 'Città', 'Provincia', 'CAP', 'Paese', 
-      'Nome Azienda', 'P.IVA Azienda', 'Note'
+      'ID Azienda*', 'Note'
     ],
     fieldMapping: {
       'Nome*': 'firstName',
@@ -87,8 +87,7 @@ const IMPORT_CONFIGS = {
       'Provincia': 'province',
       'CAP': 'postalCode',
       'Paese': 'country',
-      'Nome Azienda': 'companyName',
-      'P.IVA Azienda': 'companyVatNumber',
+      'ID Azienda*': 'companyId',
       'Note': 'notes',
     },
     endpoint: '/api/students/import-batch',

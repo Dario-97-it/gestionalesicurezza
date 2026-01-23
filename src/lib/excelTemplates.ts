@@ -32,8 +32,8 @@ const COMPANY_TEMPLATE: TemplateConfig = {
     'Note',
   ],
   exampleData: [
-    ['Esempio SRL', '12345678901', '12345678901', 'Via Roma 1', 'Milano', 'MI', '20100', 'Italia', '+39 02 1234567', 'info@esempio.it', 'esempio@pec.it', 'ABC1234', 'Azienda di esempio'],
-    ['Test SpA', '98765432109', '98765432109', 'Via Verdi 10', 'Roma', 'RM', '00100', 'Italia', '+39 06 7654321', 'info@test.it', 'test@pec.it', 'XYZ7890', ''],
+    ['1', '12345678901', 'Via Roma 1', 'Milano', 'MI', '20100', 'Italia', '+39 02 1234567', 'info@esempio.it', 'esempio@pec.it', 'ABC1234', 'Azienda di esempio'],
+    ['2', '98765432109', 'Via Verdi 10', 'Roma', 'RM', '00100', 'Italia', '+39 06 7654321', 'info@test.it', 'test@pec.it', 'XYZ7890', ''],
   ],
   columnWidths: [25, 15, 18, 30, 15, 8, 8, 10, 18, 25, 25, 10, 30],
   notes: [
@@ -70,15 +70,15 @@ const STUDENT_TEMPLATE: TemplateConfig = {
     'Provincia',
     'CAP',
     'Paese',
-    'Nome Azienda',
-    'P.IVA Azienda',
+    'ID Azienda*',
+    
     'Note',
   ],
   exampleData: [
-    ['Mario', 'Rossi', 'mario.rossi@email.it', '+39 333 1234567', 'RSSMRA80A01H501Z', '01/01/1980', 'Roma', 'Via Roma 1', 'Milano', 'MI', '20100', 'Italia', 'Esempio SRL', '12345678901', 'Studente di esempio'],
-    ['Laura', 'Bianchi', 'laura.bianchi@email.it', '+39 333 7654321', 'BNCLRA85B41F205X', '01/02/1985', 'Milano', 'Via Verdi 10', 'Roma', 'RM', '00100', 'Italia', 'Test SpA', '98765432109', ''],
+    ['Mario', 'Rossi', 'mario.rossi@email.it', '+39 333 1234567', 'RSSMRA80A01H501Z', '01/01/1980', 'Roma', 'Via Roma 1', 'Milano', 'MI', '20100', 'Italia', '1', 'Studente di esempio'],
+    ['Laura', 'Bianchi', 'laura.bianchi@email.it', '+39 333 7654321', 'BNCLRA85B41F205X', '01/02/1985', 'Milano', 'Via Verdi 10', 'Roma', 'RM', '00100', 'Italia', '2', ''],
   ],
-  columnWidths: [15, 15, 25, 18, 18, 12, 15, 30, 15, 8, 8, 10, 25, 15, 30],
+  columnWidths: [15, 15, 25, 18, 18, 12, 15, 30, 15, 8, 8, 10, 12, 30],
   notes: [
     '* Campi obbligatori',
     '',

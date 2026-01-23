@@ -36,6 +36,7 @@ const navigation = [
   { name: 'Notifiche Scadenze', href: '/notifications/certificates', icon: ExclamationTriangleIcon },
   { name: 'Report', href: '/reports', icon: ChartBarIcon },
   { name: 'Importazione', href: '/import', icon: ArrowDownTrayIcon },
+  { name: 'Trasferimento Studenti', href: '/students/transfer', icon: UserGroupIcon },
 ];
 
 interface LayoutProps {

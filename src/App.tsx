@@ -23,6 +23,7 @@ const CertificateNotifications = lazy(() => import('./pages/CertificateNotificat
 const BatchRegistrations = lazy(() => import('./pages/BatchRegistrations'));
 const CalendarView = lazy(() => import('./pages/CalendarView'));
 const BatchImport = lazy(() => import('./pages/BatchImport'));
+const StudentTransfer = lazy(() => import('./pages/StudentTransfer'));
 
 // Loading component for Suspense fallback
 function PageLoader() {
@@ -219,6 +220,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <BatchImport />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/students/transfer"
+        element={
+          <ProtectedRoute>
+            <StudentTransfer />
           </ProtectedRoute>
         }
       />
