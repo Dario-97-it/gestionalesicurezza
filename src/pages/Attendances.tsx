@@ -3,7 +3,7 @@ import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState } from '../components/ui/Table';
-import { editionsApi, registrationsApi, coursesApi, studentsApi } from '../lib/api';
+import { editionsApi, registrationsApi, coursesApi, studentsApi, companiesApi } from '../lib/api';
 import { exportAttendancePDF, exportAttendanceExcel } from '../lib/pdfExport';
 import type { CourseEdition, Registration, Course, Student } from '../types';
 
@@ -34,6 +34,7 @@ export default function Attendances() {
   const [editions, setEditions] = useState<CourseEdition[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [selectedEdition, setSelectedEdition] = useState<number | undefined>();
   const [sessions, setSessions] = useState<EditionSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<number | undefined>();
@@ -46,14 +47,16 @@ export default function Attendances() {
   // Fetch editions and courses
   const fetchDropdownData = useCallback(async () => {
     try {
-      const [editionsRes, coursesRes, studentsRes] = await Promise.all([
+      const [editionsRes, coursesRes, studentsRes, companiesRes] = await Promise.all([
         editionsApi.getAll(1, 100),
         coursesApi.getAll(1, 100),
-        studentsApi.getAll(1, 100)
+        studentsApi.getAll(1, 100),
+        companiesApi.getAll(1, 100)
       ]);
       setEditions(editionsRes.data || []);
       setCourses(coursesRes.data || []);
       setStudents(studentsRes.data || []);
+      setCompanies(companiesRes.data || []);
     } catch (err) {
       console.error('Error fetching dropdown data:', err);
       setError('Errore nel caricamento dei dati');
@@ -110,7 +113,7 @@ export default function Attendances() {
           firstName: student?.firstName || '-',
           lastName: student?.lastName || '-',
           email: student?.email || '-',
-          companyName: student?.companyId ? `Company ${student.companyId}` : '-',
+          companyName: student?.companyId ? (companies.find(c => c.id === student.companyId)?.name || '-') : '-',
           present: existing?.present || false,
           hoursAttended: existing?.hoursAttended || 0,
           sessionHours: session.hours || 0

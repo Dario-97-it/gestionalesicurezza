@@ -13,6 +13,7 @@ import {
   ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import { Layout } from '../components/Layout';
+import { SystemUpdatesNotification } from '../components/ui/NotificationBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { dashboardApi } from '../lib/api';
@@ -165,6 +166,9 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold mb-2">Benvenuto in SecurityTools</h1>
           <p className="text-blue-100">Gestionale corsi sicurezza sul lavoro D.Lgs. 81/08</p>
         </div>
+
+        {/* Notifica Novità Sistema */}
+        <SystemUpdatesNotification />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
