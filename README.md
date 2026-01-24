@@ -1,4 +1,4 @@
-# SecurityTools - Gestionale Corsi Sicurezza D.Lgs. 81/08
+# GestionaleSicurezza - Gestionale Corsi Sicurezza D.Lgs. 81/08
 
 Gestionale completo per la gestione di corsi di formazione sulla sicurezza sul lavoro, ottimizzato per Cloudflare Pages.
 
@@ -61,16 +61,16 @@ Copia gli ID generati nel file `wrangler.toml`:
 ```toml
 [[d1_databases]]
 binding = "DB"
-database_name = "securitytools-db"
-database_id = "YOUR_D1_DATABASE_ID"
+database_name = "gestionalesicurezza"
+database_id = "bf929649-0ce9-4715-b440-dea458b36c76"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "YOUR_SESSIONS_KV_ID"
+id = "81d32bda77214ae192ee7848f9c817f4"
 
 [[kv_namespaces]]
 binding = "SUBSCRIPTIONS"
-id = "YOUR_SUBSCRIPTIONS_KV_ID"
+id = "ee17c3df58ac4303a455eaf735f13738"
 ```
 
 ### 5. Configura i secrets
