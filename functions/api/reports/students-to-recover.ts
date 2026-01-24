@@ -6,7 +6,16 @@
  * GET /api/reports/students-to-recover - Lista studenti da recuperare
  */
 
-import type { Env, AuthenticatedRequest } from '../../_middleware';
+interface Env {
+  DB: D1Database;
+}
+
+interface AuthContext {
+  clientId: number;
+  userId: number;
+  email: string;
+  role: string;
+}
 
 interface StudentToRecover {
   studentId: number;
@@ -18,15 +27,12 @@ interface StudentToRecover {
   courseTitle: string;
   courseCode: string;
   courseType: string;
-  // Dettagli ultima edizione
   lastEditionId: number;
   lastEditionDate: string;
   lastEditionLocation: string;
-  // Motivo recupero
   reason: 'absent' | 'failed' | 'partial_attendance';
   reasonDescription: string;
   attendancePercent: number | null;
-  // Prossima edizione disponibile
   nextEditionId: number | null;
   nextEditionDate: string | null;
   nextEditionLocation: string | null;
@@ -34,9 +40,18 @@ interface StudentToRecover {
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const request = context.request as AuthenticatedRequest;
-  const clientId = request.clientId;
-  const db = context.env.DB;
+  const { env, request } = context;
+  const auth = context.data.auth as AuthContext;
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const clientId = auth.clientId;
+  const db = env.DB;
 
   try {
     const url = new URL(request.url);
@@ -73,14 +88,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       WHERE r.clientId = ?
         AND ce.status = 'completed'
         AND (
-          -- Iscrizione cancellata
           r.status = 'cancelled'
-          -- Oppure frequenza insufficiente
           OR (r.attendancePercent IS NOT NULL AND r.attendancePercent < COALESCE(c.minAttendancePercent, 90))
-          -- Oppure certificato non emesso (bocciato)
-          OR (r.status = 'completed' AND r.certificateIssued = 0)
+          OR (r.status = 'completed' AND COALESCE(r.certificateIssued, 0) = 0)
         )
-        -- Non già iscritto a un'edizione futura dello stesso corso
         AND NOT EXISTS (
           SELECT 1 FROM registrations r2
           JOIN courseEditions ce2 ON ce2.id = r2.courseEditionId
@@ -216,7 +227,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Error fetching students to recover:', error);
-    return new Response(JSON.stringify({ error: 'Errore nel recupero degli studenti' }), {
+    return new Response(JSON.stringify({ error: 'Errore nel recupero degli studenti', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

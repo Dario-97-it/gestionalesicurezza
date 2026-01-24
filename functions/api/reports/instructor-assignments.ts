@@ -5,7 +5,16 @@
  * GET /api/reports/instructor-assignments - Report incarichi docenti
  */
 
-import type { Env, AuthenticatedRequest } from '../../_middleware';
+interface Env {
+  DB: D1Database;
+}
+
+interface AuthContext {
+  clientId: number;
+  userId: number;
+  email: string;
+  role: string;
+}
 
 interface InstructorAssignment {
   editionId: number;
@@ -19,7 +28,6 @@ interface InstructorAssignment {
   totalHours: number;
   totalStudents: number;
   editionType: string;
-  // Sessioni
   sessions: Array<{
     id: number;
     date: string;
@@ -37,26 +45,32 @@ interface InstructorReport {
   phone: string | null;
   specialization: string | null;
   hourlyRate: number | null;
-  // Statistiche
   totalAssignments: number;
   totalHours: number;
   totalStudents: number;
   totalEarnings: number | null;
-  // Incarichi per stato
   assignmentsByStatus: {
     scheduled: number;
     ongoing: number;
     completed: number;
     cancelled: number;
   };
-  // Lista incarichi
   assignments: InstructorAssignment[];
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const request = context.request as AuthenticatedRequest;
-  const clientId = request.clientId;
-  const db = context.env.DB;
+  const { env, request } = context;
+  const auth = context.data.auth as AuthContext;
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const clientId = auth.clientId;
+  const db = env.DB;
 
   try {
     const url = new URL(request.url);
@@ -235,7 +249,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Error generating instructor assignments report:', error);
-    return new Response(JSON.stringify({ error: 'Errore nella generazione del report' }), {
+    return new Response(JSON.stringify({ error: 'Errore nella generazione del report', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

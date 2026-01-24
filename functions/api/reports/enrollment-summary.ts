@@ -5,33 +5,47 @@
  * GET /api/reports/enrollment-summary - Report iscrizioni aggregate per tipo corso
  */
 
-import type { Env, AuthenticatedRequest } from '../../_middleware';
+interface Env {
+  DB: D1Database;
+}
+
+interface AuthContext {
+  clientId: number;
+  userId: number;
+  email: string;
+  role: string;
+}
 
 interface EnrollmentSummary {
   courseId: number;
   courseTitle: string;
   courseCode: string;
   courseType: string;
-  // Iscrizioni in attesa (pending) per edizioni future
   pendingRegistrations: number;
-  // Edizioni programmate
   scheduledEditions: number;
-  // Prossima edizione
   nextEditionId: number | null;
   nextEditionDate: string | null;
   nextEditionLocation: string | null;
   nextEditionMinParticipants: number;
   nextEditionMaxParticipants: number;
   nextEditionCurrentRegistrations: number;
-  // Suggerimento attivazione
   canActivate: boolean;
   activationMessage: string;
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const request = context.request as AuthenticatedRequest;
-  const clientId = request.clientId;
-  const db = context.env.DB;
+  const { env, request } = context;
+  const auth = context.data.auth as AuthContext;
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const clientId = auth.clientId;
+  const db = env.DB;
 
   try {
     const url = new URL(request.url);
@@ -46,7 +60,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         c.code as courseCode,
         c.type as courseType,
         c.durationHours,
-        -- Conta iscrizioni pending per edizioni future di questo corso
         (
           SELECT COUNT(*)
           FROM registrations r
@@ -56,7 +69,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             AND ce.status = 'scheduled'
             AND r.status IN ('pending', 'confirmed')
         ) as totalRegistrations,
-        -- Conta edizioni programmate
         (
           SELECT COUNT(*)
           FROM courseEditions ce
@@ -174,7 +186,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Error generating enrollment summary:', error);
-    return new Response(JSON.stringify({ error: 'Errore nella generazione del report' }), {
+    return new Response(JSON.stringify({ error: 'Errore nella generazione del report', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
