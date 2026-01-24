@@ -15,31 +15,39 @@ import {
   ChevronDownIcon,
   UsersIcon,
   ClockIcon,
-  ExclamationTriangleIcon,
   ChartBarIcon,
-  ArrowDownTrayIcon,
+  Cog6ToothIcon,
+  UserPlusIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
+/**
+ * Navigazione allineata alle 11 pagine richieste da GESTIONALECOMEVAFATTO.docx
+ * 1. Dashboard
+ * 2. Aziende
+ * 3. Studenti
+ * 4. Servizi Offerti
+ * 5. Docenti
+ * 6. Agenti
+ * 7. Edizioni
+ * 8. Presenze
+ * 9. Iscrizioni
+ * 10. Report
+ * 11. Impostazioni
+ */
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Aziende', href: '/companies', icon: BuildingOfficeIcon },
   { name: 'Studenti', href: '/students', icon: UserGroupIcon },
-  { name: 'Servizi', href: '/services', icon: AcademicCapIcon },
-  { name: 'Edizioni', href: '/editions', icon: CalendarDaysIcon },
-  { name: 'Iscrizioni', href: '/registrations', icon: ClipboardDocumentCheckIcon },
-  { name: 'Presenze', href: '/attendances', icon: ClockIcon },
-  { name: 'Calendario', href: '/calendar', icon: CalendarDaysIcon },
+  { name: 'Servizi Offerti', href: '/services', icon: AcademicCapIcon },
   { name: 'Docenti', href: '/instructors', icon: UsersIcon },
-  { name: 'Scadenzario', href: '/certificates', icon: ExclamationTriangleIcon },
-  { name: 'Notifiche Scadenze', href: '/notifications/certificates', icon: ExclamationTriangleIcon },
+  { name: 'Agenti', href: '/agents', icon: UserPlusIcon },
+  { name: 'Edizioni', href: '/editions', icon: CalendarDaysIcon },
+  { name: 'Presenze', href: '/attendances', icon: ClockIcon },
+  { name: 'Iscrizioni', href: '/registrations', icon: ClipboardDocumentCheckIcon },
   { name: 'Report', href: '/reports', icon: ChartBarIcon },
-  { name: 'Riepilogo Iscrizioni', href: '/reports/enrollment-summary', icon: ChartBarIcon },
-  { name: 'Studenti da Recuperare', href: '/reports/students-to-recover', icon: UserGroupIcon },
-  { name: 'Incarichi Docenti', href: '/reports/instructor-assignments', icon: UsersIcon },
-  { name: 'Importazione', href: '/import', icon: ArrowDownTrayIcon },
-  { name: 'Trasferimento Studenti', href: '/students/transfer', icon: UserGroupIcon },
+  { name: 'Impostazioni', href: '/settings', icon: Cog6ToothIcon },
 ];
 
 interface LayoutProps {
@@ -108,7 +116,8 @@ export function Layout({ children }: LayoutProps) {
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4">
                   <div className="flex h-16 shrink-0 items-center">
                     <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center hover:opacity-80 transition-opacity">
-                      <img src="/logo.png" alt="SecurityTools" className="h-8 w-auto" />
+                      <img src="/logo.png" alt="GestionaleSicurezza" className="h-8 w-auto" />
+                      <span className="ml-2 text-lg font-bold text-blue-600">GestionaleSicurezza</span>
                     </Link>
                   </div>
                   <nav className="flex flex-1 flex-col">
@@ -156,7 +165,8 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
           <div className="flex h-16 shrink-0 items-center">
             <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
-              <img src="/logo.png" alt="SecurityTools" className="h-10 w-auto" />
+              <img src="/logo.png" alt="GestionaleSicurezza" className="h-10 w-auto" />
+              <span className="ml-2 text-lg font-bold text-blue-600">GestionaleSicurezza</span>
             </Link>
           </div>
           <nav className="flex flex-1 flex-col">
@@ -260,14 +270,14 @@ export function Layout({ children }: LayoutProps) {
                     <Menu.Item>
                       {({ active }) => (
                         <Link
-                          to="/profile"
+                          to="/settings"
                           className={cn(
                             active ? 'bg-gray-50' : '',
                             'flex items-center px-4 py-2 text-sm text-gray-700'
                           )}
                         >
                           <UserIcon className="mr-3 h-5 w-5 text-gray-400" />
-                          Profilo
+                          Impostazioni
                         </Link>
                       )}
                     </Menu.Item>
