@@ -155,9 +155,11 @@ export const courseEditions = sqliteTable("courseEditions", {
   endDate: text("endDate").notNull(),
   location: text("location").notNull(),
   instructorId: integer("instructorId").references(() => instructors.id, { onDelete: "set null" }),
+  instructor: text("instructor"), // Nome docente testuale (alternativo a instructorId)
   maxParticipants: integer("maxParticipants").notNull(),
   minParticipants: integer("minParticipants").default(1),
   price: integer("price").notNull(),
+  customPrice: integer("customPrice"), // Prezzo personalizzato
   status: text("status", { enum: ["scheduled", "ongoing", "completed", "cancelled"] }).default("scheduled").notNull(),
   isDedicated: integer("isDedicated", { mode: "boolean" }).default(false),
   dedicatedCompanyId: integer("dedicatedCompanyId").references(() => companies.id, { onDelete: "set null" }),
@@ -196,11 +198,15 @@ export const registrations = sqliteTable("registrations", {
 export const attendances = sqliteTable("attendances", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
-  registrationId: integer("registrationId").notNull().references(() => registrations.id, { onDelete: "cascade" }),
+  registrationId: integer("registrationId").references(() => registrations.id, { onDelete: "cascade" }),
+  studentId: integer("studentId").references(() => students.id, { onDelete: "cascade" }),
+  courseEditionId: integer("courseEditionId").references(() => courseEditions.id, { onDelete: "cascade" }),
   attendanceDate: text("attendanceDate").notNull(),
   status: text("status", { enum: ["present", "absent", "late", "justified"] }).default("present").notNull(),
-  hoursAttended: integer("hoursAttended").notNull(),
+  hoursAttended: integer("hoursAttended"),
+  notes: text("notes"),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => ({
   clientIdIdx: index("att_clientId_idx").on(table.clientId),
 }));
