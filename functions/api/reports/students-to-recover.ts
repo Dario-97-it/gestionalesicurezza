@@ -59,10 +59,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const courseType = url.searchParams.get('courseType');
     const companyId = url.searchParams.get('companyId');
 
-    // Query per trovare studenti con:
-    // 1. Iscrizioni cancellate
-    // 2. Iscrizioni con frequenza insufficiente
-    // 3. Presenze con status 'absent' in edizioni completate
+    // Query semplificata per trovare studenti da recuperare
+    // Cerca iscrizioni cancellate o completate senza certificato
     let query = `
       SELECT DISTINCT
         s.id as studentId,
@@ -78,8 +76,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         ce.startDate as lastEditionDate,
         ce.location as lastEditionLocation,
         r.status as registrationStatus,
-        r.attendancePercent,
-        c.minAttendancePercent
+        COALESCE(r.attendancePercent, 0) as attendancePercent,
+        COALESCE(r.certificateIssued, 0) as certificateIssued
       FROM registrations r
       JOIN students s ON s.id = r.studentId
       JOIN courseEditions ce ON ce.id = r.courseEditionId
@@ -89,7 +87,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         AND ce.status = 'completed'
         AND (
           r.status = 'cancelled'
-          OR (r.attendancePercent IS NOT NULL AND r.attendancePercent < COALESCE(c.minAttendancePercent, 90))
           OR (r.status = 'completed' AND COALESCE(r.certificateIssued, 0) = 0)
         )
         AND NOT EXISTS (
@@ -134,16 +131,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       if ((student as any).registrationStatus === 'cancelled') {
         reason = 'absent';
         reasonDescription = 'Iscrizione annullata';
-      } else if ((student as any).attendancePercent !== null) {
-        const minPercent = (student as any).minAttendancePercent || 90;
-        if ((student as any).attendancePercent < minPercent) {
-          reason = 'partial_attendance';
-          reasonDescription = `Frequenza insufficiente: ${(student as any).attendancePercent}% (min. ${minPercent}%)`;
-        } else {
-          reason = 'failed';
-          reasonDescription = 'Non ha superato il corso';
-        }
-      } else {
+      } else if ((student as any).certificateIssued === 0) {
         reason = 'failed';
         reasonDescription = 'Certificato non emesso';
       }

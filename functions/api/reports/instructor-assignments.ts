@@ -89,7 +89,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         i.hourlyRate
       FROM instructors i
       WHERE i.clientId = ?
-        AND COALESCE(i.isActive, 1) = 1
     `;
 
     const instructorParams: any[] = [clientId];
