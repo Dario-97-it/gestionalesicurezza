@@ -56,10 +56,10 @@ function generateICalendar(
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//SecurityTools//Course Management//IT',
+    'PRODID:-//GestionaleSicurezza//Course Management//IT',
     'CALSCALE:GREGORIAN',
     'METHOD:REQUEST',
-    'X-WR-CALNAME:SecurityTools - Corsi',
+    'X-WR-CALNAME:GestionaleSicurezza - Corsi',
     'X-WR-TIMEZONE:Europe/Rome',
     'BEGIN:VTIMEZONE',
     'TZID:Europe/Rome',
@@ -94,7 +94,7 @@ function generateICalendar(
 
     const eventLines = [
       'BEGIN:VEVENT',
-      `UID:session-${session.id}-${edition.id}@securitytools.it`,
+      `UID:session-${session.id}-${edition.id}@gestionalesicurezza.it`,
       `DTSTAMP:${formatICalDate(new Date())}`,
       `DTSTART;TZID=Europe/Rome:${formatICalDateLocal(startDate)}`,
       `DTEND;TZID=Europe/Rome:${formatICalDateLocal(endDate)}`,
@@ -241,8 +241,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     });
 
     const organizer = {
-      name: client?.name || 'SecurityTools',
-      email: client?.email || 'noreply@securitytools.it',
+      name: client?.name || 'GestionaleSicurezza',
+      email: client?.email || 'noreply@gestionalesicurezza.it',
     };
 
     // Genera il file iCalendar

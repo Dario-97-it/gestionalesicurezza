@@ -1,4 +1,4 @@
-# SecurityTools - Guida al Deployment
+# GestionaleSicurezza - Guida al Deployment
 
 ## Prerequisiti
 
@@ -28,7 +28,7 @@ Il deployment è configurato per avvenire automaticamente su ogni push al branch
 1. Effettua il push del codice a GitHub
 2. GitHub Actions esegue i test
 3. Cloudflare Pages deploy automaticamente
-4. URL: https://securitytools-v2.pages.dev
+4. URL: https://gestionalesicurezza.pages.dev
 
 ## Deployment Manuale
 
@@ -65,7 +65,7 @@ npm run db:seed
 
 ## Verifica Post-Deploy
 
-1. **Accesso**: Visita https://securitytools-v2.pages.dev/login
+1. **Accesso**: Visita https://gestionalesicurezza.pages.dev/login
 2. **Credenziali test**: admin@bnetsrl.it / 1234
 3. **Dashboard**: Verifica che i dati carichino correttamente
 4. **API**: Testa alcuni endpoint con curl o Postman
@@ -105,7 +105,7 @@ wrangler tail
 
 ### Metriche
 - Accedi a Cloudflare Dashboard
-- Vai a Pages > securitytools-v2
+- Vai a Pages > gestionalesicurezza
 - Visualizza Analytics
 
 ### Errori
@@ -123,7 +123,7 @@ Sentry.init({
 
 Se necessario, rollback a una versione precedente:
 
-1. Vai a Cloudflare Pages > securitytools-v2
+1. Vai a Cloudflare Pages > gestionalesicurezza
 2. Seleziona "Deployments"
 3. Clicca su una versione precedente
 4. Clicca "Rollback"
@@ -133,7 +133,7 @@ Se necessario, rollback a una versione precedente:
 ### Backup manuale
 ```bash
 # Esporta dati
-wrangler d1 backup create securitytools
+wrangler d1 backup create gestionalesicurezza-db
 ```
 
 ### Backup automatico

@@ -1,8 +1,8 @@
-# Email per Operatori - Novità SecurityTools v2
+# Email per Operatori - Novità GestionaleSicurezza v1.0
 
 ## Oggetto Email
 
-**Oggetto**: 🚀 SecurityTools v2 - Nuove Funzionalità e Miglioramenti UX
+**Oggetto**: 🚀 GestionaleSicurezza v1.0 - Nuove Funzionalità e Miglioramenti UX
 
 ---
 
@@ -10,7 +10,7 @@
 
 Gentile Operatore,
 
-Siamo lieti di annunciare l'aggiornamento di **SecurityTools v2** con nuove funzionalità, validazioni avanzate e miglioramenti dell'esperienza utente. Di seguito trovi un riepilogo delle principali novità.
+Siamo lieti di annunciare l'aggiornamento di **GestionaleSicurezza v1.0** con nuove funzionalità, validazioni avanzate e miglioramenti dell'esperienza utente. Di seguito trovi un riepilogo delle principali novità.
 
 ---
 
@@ -94,7 +94,7 @@ Abbiamo ottimizzato le prestazioni del sistema.
 L'interfaccia è stata migliorata per una migliore esperienza d'uso.
 
 **Novità:**
-- Logo SecurityTools cliccabile per tornare alla home
+- Logo GestionaleSicurezza cliccabile per tornare alla home
 - Animazioni fluide su pulsanti e card
 - Focus states accessibili
 - Supporto dark mode (automatico)
@@ -130,7 +130,7 @@ Monitora le scadenze degli attestati in modo efficace.
 ### 🔧 Come Segnalare Problemi
 
 Se riscontri problemi o hai suggerimenti, contattaci:
-- Email: supporto@securitytools.it
+- Email: supporto@gestionalesicurezza.it
 - Telefono: 02 1234567
 
 ---
@@ -143,7 +143,7 @@ Consulta la documentazione completa nel file `BEST_PRACTICES.md` disponibile nel
 
 Cordiali saluti,
 
-**Il Team SecurityTools**
+**Il Team GestionaleSicurezza**
 
 ---
 

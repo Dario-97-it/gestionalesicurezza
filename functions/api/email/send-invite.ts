@@ -36,11 +36,11 @@ const createCalendarInvite = (data: {
   const dtstart = `${year}${month}${day}T${startHour}${startMin}00`;
   const dtend = `${year}${month}${day}T${endHour}${endMin}00`;
   const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const uid = `${Math.random().toString(36).substr(2, 9)}-${Date.now()}@securitytools.local`;
+  const uid = `${Math.random().toString(36).substr(2, 9)}-${Date.now()}@gestionalesicurezza.local`;
 
   const ics = `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//SecurityTools//Calendar Invite//IT
+PRODID:-//GestionaleSicurezza//Calendar Invite//IT
 CALSCALE:GREGORIAN
 METHOD:REQUEST
 BEGIN:VEVENT
@@ -87,7 +87,7 @@ const sendEmailViaResend = async (
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: fromEmail.includes('@') ? `SecurityTools <${fromEmail}>` : `SecurityTools <noreply@securitytools.it>`,
+        from: fromEmail.includes('@') ? `GestionaleSicurezza <${fromEmail}>` : `GestionaleSicurezza <noreply@gestionalesicurezza.it>`,
         to: [to],
         subject,
         html,
@@ -181,7 +181,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       location,
       attendeeEmail: instructorEmail,
       organizerEmail: senderEmail,
-      organizerName: 'SecurityTools'
+      organizerName: 'GestionaleSicurezza'
     });
 
     // Prepara l'HTML dell'email
