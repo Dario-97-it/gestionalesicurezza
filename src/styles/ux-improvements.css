@@ -236,7 +236,8 @@ select:invalid {
   }
 }
 
-/* Dark mode support */
+/* Dark mode support - DISABLED for consistent light theme */
+/* 
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #1f2937;
@@ -263,6 +264,15 @@ select:invalid {
   tbody tr:nth-child(even) {
     background-color: #111827;
   }
+}
+*/
+
+/* Force light theme for inputs */
+input,
+select,
+textarea {
+  background-color: #ffffff !important;
+  color: #111827 !important;
 }
 
 /* Print styles */

@@ -14,9 +14,29 @@ export const clients = sqliteTable("clients", {
   subscriptionStatus: text("subscriptionStatus", { enum: ["active", "suspended", "expired", "trial"] }).default("trial").notNull(),
   subscriptionExpiresAt: text("subscriptionExpiresAt"),
   maxUsers: integer("maxUsers").default(5).notNull(),
+  lastLoginAt: text("lastLoginAt"),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
 });
+
+/**
+ * Users table - Utenti (dipendenti) del cliente
+ */
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  passwordHash: text("passwordHash").notNull(),
+  name: text("name").notNull(),
+  role: text("role", { enum: ["admin", "user", "readonly"] }).default("user").notNull(),
+  isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
+  lastLoginAt: text("lastLoginAt"),
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  clientIdIdx: index("user_clientId_idx").on(table.clientId),
+  uniqueEmailPerClient: unique().on(table.clientId, table.email),
+}));
 
 /**
  * Agents table - Agenti commerciali
