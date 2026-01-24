@@ -191,13 +191,13 @@ export default function Services() {
   };
 
   const handleExport = () => {
-    if (!courses || courses.length === 0) {
+    if (!services || services.length === 0) {
       setMessage({ type: 'error', text: 'Nessun dato da esportare' });
       return;
     }
 
     const headers = ['Titolo', 'Codice', 'Tipo', 'Durata (ore)', 'Prezzo (€)', 'Descrizione', 'Attivo'];
-    const rows = courses.map(c => [
+    const rows = services.map(c => [
       c.title || '',
       c.code || '',
       c.type || '',
@@ -289,7 +289,7 @@ export default function Services() {
               <div className="flex items-center justify-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               </div>
-            ) : courses.length === 0 ? (
+            ) : services.length === 0 ? (
               <EmptyState
                 title="Nessun corso trovato"
                 description={search ? 'Prova a modificare i criteri di ricerca' : 'Inizia aggiungendo il primo corso'}
@@ -316,7 +316,7 @@ export default function Services() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {courses.map((course) => (
+                    {services.map((course) => (
                       <TableRow key={course.id}>
                         <TableCell className="font-medium">{course.title}</TableCell>
                         <TableCell className="font-mono text-sm">{course.code}</TableCell>
@@ -363,9 +363,9 @@ export default function Services() {
         </Card>
 
         {/* Stats */}
-        {!isLoading && courses.length > 0 && (
+        {!isLoading && services.length > 0 && (
           <div className="text-sm text-gray-500 text-center">
-            Mostrati {courses.length} di {pagination.total} corsi
+            Mostrati {services.length} di {pagination.total} corsi
           </div>
         )}
       </div>
