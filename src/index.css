@@ -1,9 +1,10 @@
+/* Import statements must come first */
+@import './styles/mobile.css';
+@import './styles/ux-improvements.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Mobile optimizations */
-@import './styles/mobile.css';
 
 /* Custom styles */
 body {
@@ -66,4 +67,3 @@ textarea:focus {
     display: none !important;
   }
 }
-@import './styles/ux-improvements.css';

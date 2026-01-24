@@ -425,3 +425,31 @@ export const instructorsApi = {
 };
 
 export default api;
+
+
+// Agents API
+export const agentsApi = {
+  getAll: async (): Promise<{ success: boolean; data: any[] }> => {
+    const response = await api.get('/agents');
+    return response.data;
+  },
+
+  getById: async (id: number): Promise<any> => {
+    const response = await api.get(`/agents/${id}`);
+    return response.data;
+  },
+
+  create: async (data: { name: string; email?: string; phone?: string; notes?: string }): Promise<any> => {
+    const response = await api.post('/agents', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: { name: string; email?: string; phone?: string; notes?: string }): Promise<any> => {
+    const response = await api.put(`/agents/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/agents/${id}`);
+  },
+};

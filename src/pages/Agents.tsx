@@ -3,9 +3,9 @@ import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState, Pagination } from '../components/ui/Table';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState } from '../components/ui/Table';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
-import { api } from '../lib/api';
+import { agentsApi } from '../lib/api';
 import toast from 'react-hot-toast';
 import {
   PlusIcon,
@@ -43,7 +43,7 @@ export default function Agents() {
   const fetchAgents = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/agents');
+      const response = await agentsApi.getAll();
       if (response.success) {
         setAgents(response.data || []);
       }
@@ -69,10 +69,10 @@ export default function Agents() {
     setIsSaving(true);
     try {
       if (editingAgent) {
-        await api.put(`/api/agents/${editingAgent.id}`, formData);
+        await agentsApi.update(editingAgent.id, formData);
         toast.success('Agente aggiornato con successo');
       } else {
-        await api.post('/api/agents', formData);
+        await agentsApi.create(formData);
         toast.success('Agente creato con successo');
       }
       setShowModal(false);
@@ -88,7 +88,7 @@ export default function Agents() {
   const handleDelete = async () => {
     if (!deletingAgent) return;
     try {
-      await api.delete(`/api/agents/${deletingAgent.id}`);
+      await agentsApi.delete(deletingAgent.id);
       toast.success('Agente eliminato');
       setShowDeleteDialog(false);
       setDeletingAgent(null);
