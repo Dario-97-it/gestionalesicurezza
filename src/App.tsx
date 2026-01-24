@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
-// Lazy load all pages for better performance
+// Lazy load all pages according to GESTIONALECOMEVAFATTO.docx
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Companies = lazy(() => import('./pages/Companies'));
@@ -11,62 +11,39 @@ const CompanyDetail = lazy(() => import('./pages/CompanyDetail'));
 const Students = lazy(() => import('./pages/Students'));
 const StudentDetail = lazy(() => import('./pages/StudentDetail'));
 const Services = lazy(() => import('./pages/Services'));
-const Editions = lazy(() => import('./pages/Editions'));
-const Registrations = lazy(() => import('./pages/Registrations'));
-const Attendances = lazy(() => import('./pages/Attendances'));
 const Instructors = lazy(() => import('./pages/Instructors'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Certificates = lazy(() => import('./pages/Certificates'));
+const Agents = lazy(() => import('./pages/Agents')); // Nuova Pagina 6
+const Editions = lazy(() => import('./pages/Editions'));
+const Attendances = lazy(() => import('./pages/Attendances'));
+const Registrations = lazy(() => import('./pages/Registrations'));
 const Reports = lazy(() => import('./pages/Reports'));
 const EmailSettings = lazy(() => import('./pages/EmailSettings').then(m => ({ default: m.EmailSettings })));
-const CertificateNotifications = lazy(() => import('./pages/CertificateNotifications'));
-const BatchRegistrations = lazy(() => import('./pages/BatchRegistrations'));
-const CalendarView = lazy(() => import('./pages/CalendarView'));
-const BatchImport = lazy(() => import('./pages/BatchImport'));
-const StudentTransfer = lazy(() => import('./pages/StudentTransfer'));
-const StudentsToRecover = lazy(() => import('./pages/StudentsToRecover'));
-const InstructorAssignments = lazy(() => import('./pages/InstructorAssignments'));
-const EnrollmentSummary = lazy(() => import('./pages/EnrollmentSummary'));
 
-// Loading component for Suspense fallback
+// Loading component
 function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Caricamento...</p>
+        <p className="mt-4 text-gray-600">Caricamento GestionaleSicurezza...</p>
       </div>
     </div>
   );
 }
 
-// Protected Route Component
+// Protected Route
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <PageLoader />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
+  if (isLoading) return <PageLoader />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
-// Public Route Component (redirect to dashboard if authenticated)
+// Public Route
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <PageLoader />;
-  }
-
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
+  if (isLoading) return <PageLoader />;
+  if (isAuthenticated) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -74,191 +51,44 @@ function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
-        />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/companies"
-          element={
-            <ProtectedRoute>
-              <Companies />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/companies/:id"
-          element={
-            <ProtectedRoute>
-              <CompanyDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/students"
-          element={
-            <ProtectedRoute>
-              <Students />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/students/:id"
-          element={
-            <ProtectedRoute>
-              <StudentDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/services"
-          element={
-            <ProtectedRoute>
-              <Services />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/editions"
-          element={
-            <ProtectedRoute>
-              <Editions />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/registrations"
-          element={
-            <ProtectedRoute>
-              <Registrations />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/attendances"
-          element={
-            <ProtectedRoute>
-              <Attendances />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/instructors"
-          element={
-            <ProtectedRoute>
-              <Instructors />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/certificates"
-          element={
-            <ProtectedRoute>
-              <Certificates />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/reports"
-          element={
-            <ProtectedRoute>
-              <Reports />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings/email"
-          element={
-            <ProtectedRoute>
-              <EmailSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/notifications/certificates"
-          element={
-            <ProtectedRoute>
-              <CertificateNotifications />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/registrations/batch"
-          element={
-            <ProtectedRoute>
-              <BatchRegistrations />
-            </ProtectedRoute>
-          }
-        />
-      <Route
-        path="/calendar"
-        element={
-          <ProtectedRoute>
-            <CalendarView />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/import"
-        element={
-          <ProtectedRoute>
-            <BatchImport />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/students/transfer"
-        element={
-          <ProtectedRoute>
-            <StudentTransfer />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports/students-to-recover"
-        element={
-          <ProtectedRoute>
-            <StudentsToRecover />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports/instructor-assignments"
-        element={
-          <ProtectedRoute>
-            <InstructorAssignments />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports/enrollment-summary"
-        element={
-          <ProtectedRoute>
-            <EnrollmentSummary />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+        
+        {/* Home / Dashboard (Pagina 1) */}
+        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        
+        {/* Aziende (Pagina 2) */}
+        <Route path="/companies" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
+        <Route path="/companies/:id" element={<ProtectedRoute><CompanyDetail /></ProtectedRoute>} />
+        
+        {/* Studenti (Pagina 3) */}
+        <Route path="/students" element={<ProtectedRoute><Students /></ProtectedRoute>} />
+        <Route path="/students/:id" element={<ProtectedRoute><StudentDetail /></ProtectedRoute>} />
+        
+        {/* Servizi Offerti (Pagina 4) */}
+        <Route path="/services" element={<ProtectedRoute><Services /></ProtectedRoute>} />
+        
+        {/* Docenti (Pagina 5) */}
+        <Route path="/instructors" element={<ProtectedRoute><Instructors /></ProtectedRoute>} />
+        
+        {/* Agenti (Pagina 6) */}
+        <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
+        
+        {/* Edizioni (Pagina 7) */}
+        <Route path="/editions" element={<ProtectedRoute><Editions /></ProtectedRoute>} />
+        
+        {/* Registro Presenze (Pagina 8) */}
+        <Route path="/attendances" element={<ProtectedRoute><Attendances /></ProtectedRoute>} />
+        
+        {/* Iscrizioni (Pagina 9) */}
+        <Route path="/registrations" element={<ProtectedRoute><Registrations /></ProtectedRoute>} />
+        
+        {/* Report (Pagina 10) */}
+        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+        
+        {/* Impostazioni (Pagina 11) */}
+        <Route path="/settings" element={<ProtectedRoute><EmailSettings /></ProtectedRoute>} />
+        
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );
