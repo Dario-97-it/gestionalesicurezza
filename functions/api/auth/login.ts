@@ -5,9 +5,9 @@
 
 import { SignJWT } from 'jose';
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
-import bcryptjs from 'bcryptjs';
+import { verifyPassword } from '../../lib/password';
 
 interface Env {
   DB: D1Database;
@@ -19,16 +19,6 @@ interface Env {
 interface LoginRequest {
   email: string;
   password: string;
-}
-
-// Verifica password usando bcryptjs
-async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  try {
-    return await bcryptjs.compare(password, hash);
-  } catch (error) {
-    console.error('Password verification error:', error);
-    return false;
-  }
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -49,10 +39,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const db = drizzle(env.DB, { schema });
 
     // Cerca prima negli utenti (dipendenti del cliente)
-    const users = await db.select()
-      .from(schema.users)
-      .where(eq(schema.users.email, email.toLowerCase()))
-      .limit(1);
+    let users: any[] = [];
+    try {
+      users = await db.select()
+        .from(schema.users)
+        .where(eq(schema.users.email, email.toLowerCase()))
+        .limit(1);
+    } catch (e) {
+      // Tabella users potrebbe non esistere, continua con clients
+      console.log('Users table query failed, trying clients');
+    }
 
     let authUser: any = null;
     let clientData: any = null;
@@ -205,14 +201,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     });
 
     // Aggiorna lastLoginAt
-    if (isClientAdmin) {
-      await db.update(schema.clients)
-        .set({ lastLoginAt: new Date().toISOString() })
-        .where(eq(schema.clients.id, clientData.id));
-    } else {
-      await db.update(schema.users)
-        .set({ lastLoginAt: new Date().toISOString() })
-        .where(eq(schema.users.id, authUser.id));
+    try {
+      if (isClientAdmin) {
+        await db.update(schema.clients)
+          .set({ lastLoginAt: new Date().toISOString() })
+          .where(eq(schema.clients.id, clientData.id));
+      } else {
+        await db.update(schema.users)
+          .set({ lastLoginAt: new Date().toISOString() })
+          .where(eq(schema.users.id, authUser.id));
+      }
+    } catch (e) {
+      // Ignora errori di aggiornamento lastLoginAt
+      console.log('Failed to update lastLoginAt:', e);
     }
 
     return new Response(JSON.stringify({
@@ -239,7 +240,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Login error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    return new Response(JSON.stringify({ 
+      error: 'Errore interno del server',
+      details: error.message || 'Unknown error'
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
