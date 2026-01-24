@@ -162,6 +162,7 @@ export const courseEditions = sqliteTable("courseEditions", {
   location: text("location").notNull(),
   instructorId: integer("instructorId").references(() => instructors.id, { onDelete: "set null" }),
   maxParticipants: integer("maxParticipants").notNull(),
+  minParticipants: integer("minParticipants").default(1), // Soglia minima per attivazione
   price: integer("price").notNull(), // in centesimi (prezzo standard)
   customPrice: integer("customPrice"), // prezzo personalizzato se diverso
   // Per edizioni private: azienda dedicata
@@ -418,3 +419,26 @@ export const emailSettings = sqliteTable("emailSettings", {
 
 export type EmailSettings = typeof emailSettings.$inferSelect;
 export type InsertEmailSettings = typeof emailSettings.$inferInsert;
+
+/**
+ * Edition Company Prices - Prezzi personalizzati per azienda nell'edizione
+ * Permette di impostare un prezzo diverso per ogni azienda partecipante
+ */
+export const editionCompanyPrices = sqliteTable("editionCompanyPrices", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  editionId: integer("editionId").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
+  companyId: integer("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  customPrice: integer("customPrice").notNull(), // Prezzo in centesimi
+  notes: text("notes"), // Note sul prezzo (es. "Sconto 10% accordo quadro")
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  clientIdIdx: index("ecp_clientId_idx").on(table.clientId),
+  editionIdIdx: index("ecp_editionId_idx").on(table.editionId),
+  companyIdIdx: index("ecp_companyId_idx").on(table.companyId),
+  uniqueEditionCompany: unique().on(table.editionId, table.companyId),
+}));
+
+export type EditionCompanyPrice = typeof editionCompanyPrices.$inferSelect;
+export type InsertEditionCompanyPrice = typeof editionCompanyPrices.$inferInsert;

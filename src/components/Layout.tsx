@@ -35,6 +35,9 @@ const navigation = [
   { name: 'Scadenzario', href: '/certificates', icon: ExclamationTriangleIcon },
   { name: 'Notifiche Scadenze', href: '/notifications/certificates', icon: ExclamationTriangleIcon },
   { name: 'Report', href: '/reports', icon: ChartBarIcon },
+  { name: 'Riepilogo Iscrizioni', href: '/reports/enrollment-summary', icon: ChartBarIcon },
+  { name: 'Studenti da Recuperare', href: '/reports/students-to-recover', icon: UserGroupIcon },
+  { name: 'Incarichi Docenti', href: '/reports/instructor-assignments', icon: UsersIcon },
   { name: 'Importazione', href: '/import', icon: ArrowDownTrayIcon },
   { name: 'Trasferimento Studenti', href: '/students/transfer', icon: UserGroupIcon },
 ];
