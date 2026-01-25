@@ -1,64 +1,131 @@
-import { Env, AuthenticatedRequest } from '../_middleware';
-import { agents } from '../../drizzle/schema';
-import { drizzle } from 'drizzle-orm/d1';
-import { eq, and } from 'drizzle-orm';
+/**
+ * API Agents - Gestione agenti commerciali
+ * GET /api/agents - Lista agenti
+ * POST /api/agents - Crea nuovo agente
+ */
 
+import { drizzle } from 'drizzle-orm/d1';
+import { eq, desc, count } from 'drizzle-orm';
+import * as schema from '../../drizzle/schema';
+
+interface Env {
+  DB: D1Database;
+}
+
+interface AuthContext {
+  clientId: number;
+  userId: number;
+  email: string;
+  role: string;
+}
+
+// GET - Lista agenti
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const request = context.request as AuthenticatedRequest;
-  const clientId = request.clientId;
-  
-  if (!clientId) {
-    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
+  const { env, request } = context;
+  const auth = context.data.auth as AuthContext;
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 
+  const url = new URL(request.url);
+  const page = parseInt(url.searchParams.get('page') || '1');
+  const pageSize = parseInt(url.searchParams.get('pageSize') || '50');
+  const offset = (page - 1) * pageSize;
+
   try {
-    const db = drizzle(context.env.DB);
-    const result = await db.select().from(agents).where(eq(agents.clientId, clientId));
-    
-    return new Response(JSON.stringify({ success: true, data: result }), {
-      headers: { 'Content-Type': 'application/json' }
+    const db = drizzle(env.DB, { schema });
+
+    // Get total count
+    const countResult = await db.select({ count: count() })
+      .from(schema.agents)
+      .where(eq(schema.agents.clientId, auth.clientId));
+    const total = countResult[0]?.count || 0;
+
+    // Get agents
+    const agents = await db.select()
+      .from(schema.agents)
+      .where(eq(schema.agents.clientId, auth.clientId))
+      .orderBy(desc(schema.agents.createdAt))
+      .limit(pageSize)
+      .offset(offset);
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: agents,
+      page,
+      pageSize,
+      total,
+      totalPages,
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: 'Errore database' }), {
+
+  } catch (error: any) {
+    console.error('List agents error:', error);
+    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 };
 
+// POST - Crea nuovo agente
 export const onRequestPost: PagesFunction<Env> = async (context) => {
-  const request = context.request as AuthenticatedRequest;
-  const clientId = request.clientId;
-  
-  if (!clientId) {
-    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
+  const { request, env } = context;
+  const auth = context.data.auth as AuthContext;
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 
   try {
-    const body = await request.json() as { name: string; email?: string; phone?: string; notes?: string };
-    const db = drizzle(context.env.DB);
-    
-    const result = await db.insert(agents).values({
-      clientId,
-      name: body.name,
-      email: body.email || null,
-      phone: body.phone || null,
-      notes: body.notes || null
-    }).returning();
-    
-    return new Response(JSON.stringify({ success: true, data: result[0] }), {
-      headers: { 'Content-Type': 'application/json' }
+    const body = await request.json() as any;
+    const { name, email, phone, notes } = body;
+
+    // Validazione
+    if (!name) {
+      return new Response(JSON.stringify({ error: 'Nome agente obbligatorio' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const db = drizzle(env.DB, { schema });
+
+    const now = new Date().toISOString();
+    const result = await db.insert(schema.agents).values({
+      clientId: auth.clientId,
+      name,
+      email: email || null,
+      phone: phone || null,
+      notes: notes || null,
+      createdAt: now,
+      updatedAt: now,
+    }).returning({ id: schema.agents.id });
+
+    return new Response(JSON.stringify({
+      success: true,
+      id: result[0].id,
+    }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: 'Errore creazione agente' }), {
+
+  } catch (error: any) {
+    console.error('Create agent error:', error);
+    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 };
