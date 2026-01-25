@@ -44,9 +44,10 @@ const navigation = [
   { name: 'Docenti', href: '/instructors', icon: UsersIcon },
   { name: 'Agenti', href: '/agents', icon: UserPlusIcon },
   { name: 'Edizioni', href: '/editions', icon: CalendarDaysIcon },
-  { name: 'Presenze', href: '/attendances', icon: ClockIcon },
-  { name: 'Iscrizioni', href: '/registrations', icon: ClipboardDocumentCheckIcon },
+  { name: 'Presenze', href: '/attendances', icon: ClipboardDocumentCheckIcon },
+  { name: 'Iscrizioni', href: '/registrations', icon: UserPlusIcon },
   { name: 'Report', href: '/reports', icon: ChartBarIcon },
+  { name: 'Scadenzario', href: '/scadenzario', icon: ClockIcon },
   { name: 'Impostazioni', href: '/settings', icon: Cog6ToothIcon },
 ];
 
@@ -116,8 +117,10 @@ export function Layout({ children }: LayoutProps) {
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-4">
                   <div className="flex h-16 shrink-0 items-center">
                     <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center hover:opacity-80 transition-opacity">
-                      <img src="/logo.png" alt="GestionaleSicurezza" className="h-8 w-auto" />
-                      <span className="ml-2 text-lg font-bold text-blue-600">GestionaleSicurezza</span>
+                      <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center mr-2">
+                        <AcademicCapIcon className="h-5 w-5 text-white" />
+                      </div>
+                      <span className="text-lg font-bold text-blue-600">GestionaleSicurezza</span>
                     </Link>
                   </div>
                   <nav className="flex flex-1 flex-col">
@@ -165,8 +168,10 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
           <div className="flex h-16 shrink-0 items-center">
             <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
-              <img src="/logo.png" alt="GestionaleSicurezza" className="h-10 w-auto" />
-              <span className="ml-2 text-lg font-bold text-blue-600">GestionaleSicurezza</span>
+              <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center mr-2">
+                <AcademicCapIcon className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-xl font-bold text-blue-600">GestionaleSicurezza</span>
             </Link>
           </div>
           <nav className="flex flex-1 flex-col">

@@ -12,11 +12,12 @@ const Students = lazy(() => import('./pages/Students'));
 const StudentDetail = lazy(() => import('./pages/StudentDetail'));
 const Services = lazy(() => import('./pages/Services'));
 const Instructors = lazy(() => import('./pages/Instructors'));
-const Agents = lazy(() => import('./pages/Agents')); // Nuova Pagina 6
+const Agents = lazy(() => import('./pages/Agents')); 
 const Editions = lazy(() => import('./pages/Editions'));
 const Attendances = lazy(() => import('./pages/Attendances'));
 const Registrations = lazy(() => import('./pages/Registrations'));
 const Reports = lazy(() => import('./pages/Reports'));
+const Scadenzario = lazy(() => import('./pages/Scadenzario'));
 const EmailSettings = lazy(() => import('./pages/EmailSettings').then(m => ({ default: m.EmailSettings })));
 
 // Loading component
@@ -84,6 +85,9 @@ function AppRoutes() {
         
         {/* Report (Pagina 10) */}
         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+        
+        {/* Scadenzario (Nuova Pagina integrata in Report/Compliance) */}
+        <Route path="/scadenzario" element={<ProtectedRoute><Scadenzario /></ProtectedRoute>} />
         
         {/* Impostazioni (Pagina 11) */}
         <Route path="/settings" element={<ProtectedRoute><EmailSettings /></ProtectedRoute>} />
