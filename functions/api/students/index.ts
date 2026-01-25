@@ -6,7 +6,7 @@
 
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, like, or, asc, and, sql } from 'drizzle-orm';
-import * as schema from '../../../drizzle/schema';
+import * as schema from '../drizzle/schema';
 
 interface Env {
   DB: D1Database;
