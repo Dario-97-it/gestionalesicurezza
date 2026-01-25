@@ -29,6 +29,7 @@ export default function Services() {
     defaultPrice: '',
     description: '',
     isActive: '1',
+    certificateValidityMonths: '',
   });
 
   // Course types for D.Lgs. 81/08
@@ -118,6 +119,7 @@ export default function Services() {
       defaultPrice: '',
       description: '',
       isActive: '1',
+      certificateValidityMonths: '',
     });
     setIsModalOpen(true);
   };
@@ -132,6 +134,7 @@ export default function Services() {
       defaultPrice: course.defaultPrice ? String(course.defaultPrice / 100) : '',
       description: course.description || '',
       isActive: course.isActive ? '1' : '0',
+      certificateValidityMonths: (course as any).certificateValidityMonths ? String((course as any).certificateValidityMonths) : '',
     });
     setIsModalOpen(true);
   };
@@ -153,6 +156,7 @@ export default function Services() {
         defaultPrice: formData.defaultPrice ? Number(formData.defaultPrice) * 100 : undefined, // Convert to cents
         description: formData.description || undefined,
         isActive: formData.isActive === '1' ? 1 : 0,
+        certificateValidityMonths: formData.certificateValidityMonths ? Number(formData.certificateValidityMonths) : undefined,
       };
 
       if (selectedCourse) {
@@ -446,17 +450,38 @@ export default function Services() {
               placeholder="Descrizione del corso..."
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
-            <select
-              name="isActive"
-              value={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="1">Attivo</option>
-              <option value="0">Inattivo</option>
-            </select>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <label className="block text-sm font-medium text-blue-900 mb-2">Validità Attestato (D.Lgs. 81/08)</label>
+            <p className="text-xs text-blue-700 mb-3">Indica dopo quanti mesi l'attestato scade e richiede un aggiornamento. Lascia vuoto se non ha scadenza.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Validità (mesi)</label>
+                <select
+                  name="certificateValidityMonths"
+                  value={formData.certificateValidityMonths}
+                  onChange={(e) => setFormData({ ...formData, certificateValidityMonths: e.target.value })}
+                  className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value="">Nessuna scadenza</option>
+                  <option value="12">12 mesi (1 anno)</option>
+                  <option value="24">24 mesi (2 anni)</option>
+                  <option value="36">36 mesi (3 anni)</option>
+                  <option value="60">60 mesi (5 anni)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
+                <select
+                  name="isActive"
+                  value={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="1">Attivo</option>
+                  <option value="0">Inattivo</option>
+                </select>
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>

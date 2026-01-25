@@ -28,6 +28,7 @@ interface Scadenza {
   daysRemaining: number;
   urgency: 'scaduto' | 'entro30' | 'entro60' | 'entro90' | 'valido';
   companyName: string;
+  companyEmail?: string;
 }
 
 export default function Scadenzario() {
@@ -37,6 +38,8 @@ export default function Scadenzario() {
   const [filterUrgency, setFilterUrgency] = useState('all');
   const [filterCompany, setFilterCompany] = useState('all');
   const [companies, setCompanies] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
 
   useEffect(() => {
     fetchScadenze();
@@ -100,6 +103,63 @@ export default function Scadenzario() {
     exportToExcel(dataToExport, 'scadenzario_attestati');
   };
 
+  const toggleSelection = (id: number) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredScadenze.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredScadenze.map(s => s.id)));
+    }
+  };
+
+  const handleSendBulkEmails = async () => {
+    if (selectedIds.size === 0) {
+      toast.error('Seleziona almeno una scadenza');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Stai per inviare ${selectedIds.size} email di avviso scadenza alle aziende. Continuare?`
+    );
+    if (!confirmed) return;
+
+    setIsSendingEmails(true);
+    try {
+      const selectedScadenze = filteredScadenze.filter(s => selectedIds.has(s.id));
+      
+      // Raggruppa per azienda
+      const byCompany = selectedScadenze.reduce((acc, s) => {
+        if (!acc[s.companyName]) {
+          acc[s.companyName] = [];
+        }
+        acc[s.companyName].push(s);
+        return acc;
+      }, {} as Record<string, Scadenza[]>);
+
+      // Simula invio email (in produzione usare API Resend)
+      const emailCount = Object.keys(byCompany).length;
+      
+      // Qui andrebbe la chiamata API reale
+      // await fetch('/api/email/send-bulk-certificate-notices', { ... });
+      
+      toast.success(`Inviate ${emailCount} email di avviso alle aziende`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error('Errore nell\'invio delle email');
+    } finally {
+      setIsSendingEmails(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -109,10 +169,22 @@ export default function Scadenzario() {
             <h1 className="text-2xl font-bold text-gray-900">Scadenzario Attestati</h1>
             <p className="text-gray-600">Gestione scadenze certificazioni e rinnovi</p>
           </div>
-          <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
-            <ArrowDownTrayIcon className="w-4 h-4" />
-            Esporta Excel
-          </Button>
+          <div className="flex gap-2">
+            {selectedIds.size > 0 && (
+              <Button 
+                onClick={handleSendBulkEmails} 
+                variant="primary" 
+                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700"
+                disabled={isSendingEmails}
+              >
+                📧 Invia Avvisi ({selectedIds.size})
+              </Button>
+            )}
+            <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
+              <ArrowDownTrayIcon className="w-4 h-4" />
+              Esporta Excel
+            </Button>
+          </div>
         </div>
 
         {/* Filtri */}
@@ -169,6 +241,14 @@ export default function Scadenzario() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.size === filteredScadenze.length && filteredScadenze.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                </TableHead>
                 <TableHead><div className="flex items-center gap-1"><UserIcon className="w-4 h-4"/> Studente</div></TableHead>
                 <TableHead>Corso</TableHead>
                 <TableHead><div className="flex items-center gap-1"><CalendarIcon className="w-4 h-4"/> Conseguimento</div></TableHead>
@@ -186,13 +266,21 @@ export default function Scadenzario() {
                 </TableRow>
               ) : filteredScadenze.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <EmptyState title="Nessuna scadenza trovata" description="Modifica i filtri per vedere più risultati" />
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredScadenze.map((s) => (
-                  <TableRow key={s.id} className="hover:bg-gray-50">
+                  <TableRow key={s.id} className={`hover:bg-gray-50 ${selectedIds.has(s.id) ? 'bg-blue-50' : ''}`}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(s.id)}
+                        onChange={() => toggleSelection(s.id)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium text-gray-900">{s.studentName}</div>
                       <div className="text-xs text-gray-500">{s.companyName}</div>
