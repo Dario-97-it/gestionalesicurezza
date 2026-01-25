@@ -1,2 +1,8 @@
-# SPA fallback - redirect all non-API routes to index.html
+# Regole di redirect per Cloudflare Pages
+# Evita il loop infinito escludendo le API e i file statici dalla regola di fallback
+
+# Le chiamate API devono essere gestite dalle Functions
+/api/*  /api/*  200
+
+# Tutto il resto va al file index.html per gestire il routing lato client (React)
 /*  /index.html  200
