@@ -110,25 +110,27 @@ export default function StudentDetail() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusColors: Record<string, string> = {
-      'completato': 'bg-green-100 text-green-800',
-      'in_corso': 'bg-blue-100 text-blue-800',
-      'iscritto': 'bg-yellow-100 text-yellow-800',
-      'annullato': 'bg-red-100 text-red-800',
-    };
-    return statusColors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      'completato': 'Completato',
-      'in_corso': 'In Corso',
-      'iscritto': 'Iscritto',
-      'annullato': 'Annullato',
-    };
-    return labels[status] || status;
-  };
+	  const getStatusBadge = (status: string) => {
+	    const statusColors: Record<string, string> = {
+	      'completed': 'bg-green-100 text-green-800',
+	      'confirmed': 'bg-blue-100 text-blue-800',
+	      'pending': 'bg-yellow-100 text-yellow-800',
+	      'cancelled': 'bg-red-100 text-red-800',
+	      'failed': 'bg-red-100 text-red-800',
+	    };
+	    return statusColors[status] || 'bg-gray-100 text-gray-800';
+	  };
+	
+	  const getStatusLabel = (status: string) => {
+	    const labels: Record<string, string> = {
+	      'completed': 'Completato',
+	      'confirmed': 'Confermato',
+	      'pending': 'In Attesa',
+	      'cancelled': 'Annullato',
+	      'failed': 'Bocciato',
+	    };
+	    return labels[status] || status;
+	  };
 
   // Calculate statistics
   const stats = {

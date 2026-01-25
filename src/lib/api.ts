@@ -342,6 +342,11 @@ export const registrationsApi = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/registrations/${id}`);
   },
+
+  bulkCreate: async (data: { courseEditionId: number; studentIds: number[] }): Promise<{ successCount: number; failedCount: number }> => {
+    const response = await api.post('/registrations/bulk', data);
+    return response.data;
+  },
 };
 
 // Attendances API

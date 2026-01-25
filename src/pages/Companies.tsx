@@ -31,6 +31,7 @@ export default function Companies() {
     phone: '',
     address: '',
     contactPerson: '',
+    riskCategory: 'low' as 'low' | 'medium' | 'high',
   });
 
   // P.IVA validation state
@@ -140,6 +141,7 @@ export default function Companies() {
       phone: '',
       address: '',
       contactPerson: '',
+      riskCategory: 'low',
     });
     setPivaValidation(null);
     setDuplicateCompany(null);
@@ -160,7 +162,10 @@ export default function Companies() {
       phone: company.phone || '',
       address: company.address || '',
       contactPerson: company.contactPerson || '',
+      riskCategory: (company as any).riskCategory || 'low',
     });
+    setPivaValidation(null);
+    setDuplicateCompany(null);
     setIsModalOpen(true);
   };
 
@@ -492,6 +497,20 @@ export default function Companies() {
             value={formData.contactPerson}
             onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
           />
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <label className="block text-sm font-medium text-blue-900 mb-2">Categoria Rischio (D.Lgs. 81/08)</label>
+            <p className="text-xs text-blue-700 mb-3">Seleziona il livello di rischio dell'azienda per la corretta assegnazione dei corsi di sicurezza.</p>
+            <select
+              value={formData.riskCategory}
+              onChange={(e) => setFormData({ ...formData, riskCategory: e.target.value as 'low' | 'medium' | 'high' })}
+              className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            >
+              <option value="low">🟢 Basso</option>
+              <option value="medium">🟡 Medio</option>
+              <option value="high">🔴 Alto</option>
+            </select>
+          </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>

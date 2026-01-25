@@ -16,6 +16,7 @@ import { Layout } from '../components/Layout';
 import { SystemUpdatesNotification } from '../components/ui/NotificationBanner';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { QuickEnrollmentWizard } from '../components/QuickEnrollmentWizard';
 import { dashboardApi } from '../lib/api';
 
 interface DashboardData {
@@ -25,6 +26,19 @@ interface DashboardData {
     courses: number;
     instructors: number;
   };
+  todaySessions: Array<{
+    id: number;
+    sessionDate: string;
+    startTime: string;
+    endTime: string;
+    hours: number;
+    location: string;
+    editionId: number;
+    courseTitle: string;
+    courseCode: string;
+    instructorFirstName: string;
+    instructorLastName: string;
+  }>;
   thisMonth: {
     editions: number;
     registrations: number;
@@ -94,6 +108,7 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isQuickEnrollmentOpen, setIsQuickEnrollmentOpen] = useState(false);
 
   useEffect(() => {
     loadDashboard();
@@ -102,8 +117,15 @@ export default function Dashboard() {
   const loadDashboard = async () => {
     try {
       setLoading(true);
-      const response = await dashboardApi.getStats();
-      setData(response);
+      const [statsResponse, sessionsResponse] = await Promise.all([
+        dashboardApi.getStats(),
+        fetch('/api/dashboard/today-sessions').then(res => res.json()),
+      ]);
+      
+      setData({
+        ...statsResponse,
+        todaySessions: sessionsResponse.sessions || [],
+      });
       setError(null);
     } catch (err: any) {
       console.error('Error loading dashboard:', err);
@@ -221,59 +243,109 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        {/* Statistiche Periodo */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Questo Mese */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2">
-                <CalendarDaysIcon className="h-5 w-5 text-blue-600" />
-                Questo Mese
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-700">{data?.thisMonth.editions || 0}</p>
-                  <p className="text-xs text-blue-600">Edizioni</p>
-                </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-700">{data?.thisMonth.registrations || 0}</p>
-                  <p className="text-xs text-green-600">Iscrizioni</p>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <p className="text-lg font-bold text-purple-700">{formatCurrency(data?.thisMonth.revenue || 0)}</p>
-                  <p className="text-xs text-purple-600">Fatturato</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quest'Anno */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2">
-                <ArrowTrendingUpIcon className="h-5 w-5 text-green-600" />
-                Quest'Anno
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-700">{data?.thisYear.editions || 0}</p>
-                  <p className="text-xs text-blue-600">Edizioni</p>
-                </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-700">{data?.thisYear.registrations || 0}</p>
-                  <p className="text-xs text-green-600">Iscrizioni</p>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <p className="text-lg font-bold text-purple-700">{formatCurrency(data?.thisYear.revenue || 0)}</p>
-                  <p className="text-xs text-purple-600">Fatturato</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+	        {/* Statistiche Periodo */}
+	        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+	          {/* Sessioni di Oggi */}
+	          <Card className="lg:col-span-1">
+	            <CardHeader className="pb-2">
+	              <CardTitle className="flex items-center gap-2 text-blue-600">
+	                <ClockIcon className="h-5 w-5" />
+	                Sessioni di Oggi
+	              </CardTitle>
+	            </CardHeader>
+	            <CardContent className="max-h-80 overflow-y-auto">
+	              {data?.todaySessions && data.todaySessions.length > 0 ? (
+	                <ul className="space-y-3">
+	                  {data.todaySessions.map((session) => (
+	                    <li key={session.id} className="p-3 border rounded-lg bg-white shadow-sm">
+	                      <div className="flex justify-between items-start">
+	                        <p className="text-sm font-semibold text-gray-900">
+	                          {session.courseTitle} ({session.courseCode})
+	                        </p>
+	                        <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+	                          {session.hours}h
+	                        </span>
+	                      </div>
+	                      <p className="text-xs text-gray-600 mt-1">
+	                        🕒 {session.startTime} - {session.endTime}
+	                      </p>
+	                      <p className="text-xs text-gray-600">
+	                        📍 {session.location}
+	                      </p>
+	                      <p className="text-xs text-gray-600">
+	                        🧑‍🏫 {session.instructorFirstName} {session.instructorLastName}
+	                      </p>
+	                      <Link 
+	                        to={`/editions/${session.editionId}/register`}
+	                        className="mt-2 inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
+	                      >
+	                        Vai al Registro Edizione →
+	                      </Link>
+	                    </li>
+	                  ))}
+	                </ul>
+	              ) : (
+	                <div className="text-center py-4 text-gray-500">
+	                  <CalendarDaysIcon className="h-6 w-6 mx-auto mb-2" />
+	                  <p className="text-sm">Nessuna sessione programmata per oggi.</p>
+	                </div>
+	              )}
+	            </CardContent>
+	          </Card>
+	          
+	          <div className="lg:col-span-2 grid grid-cols-1 gap-6 md:grid-cols-2">
+	          {/* Questo Mese */}
+	          <Card>
+	            <CardHeader className="pb-2">
+	              <CardTitle className="flex items-center gap-2">
+	                <CalendarDaysIcon className="h-5 w-5 text-blue-600" />
+	                Questo Mese
+	              </CardTitle>
+	            </CardHeader>
+	            <CardContent>
+	              <div className="grid grid-cols-3 gap-4">
+	                <div className="text-center p-3 bg-blue-50 rounded-lg">
+	                  <p className="text-2xl font-bold text-blue-700">{data?.thisMonth.editions || 0}</p>
+	                  <p className="text-xs text-blue-600">Edizioni</p>
+	                </div>
+	                <div className="text-center p-3 bg-green-50 rounded-lg">
+	                  <p className="text-2xl font-bold text-green-700">{data?.thisMonth.registrations || 0}</p>
+	                  <p className="text-xs text-green-600">Iscrizioni</p>
+	                </div>
+	                <div className="text-center p-3 bg-purple-50 rounded-lg">
+	                  <p className="text-lg font-bold text-purple-700">{formatCurrency(data?.thisMonth.revenue || 0)}</p>
+	                  <p className="text-xs text-purple-600">Fatturato</p>
+	                </div>
+	              </div>
+	            </CardContent>
+	          </Card>
+	
+	          {/* Quest'Anno */}
+	          <Card>
+	            <CardHeader className="pb-2">
+	              <CardTitle className="flex items-center gap-2">
+	                <ArrowTrendingUpIcon className="h-5 w-5 text-green-600" />
+	                Quest'Anno
+	              </CardTitle>
+	            </CardHeader>
+	            <CardContent>
+	              <div className="grid grid-cols-3 gap-4">
+	                <div className="text-center p-3 bg-blue-50 rounded-lg">
+	                  <p className="text-2xl font-bold text-blue-700">{data?.thisYear.editions || 0}</p>
+	                  <p className="text-xs text-blue-600">Edizioni</p>
+	                </div>
+	                <div className="text-center p-3 bg-green-50 rounded-lg">
+	                  <p className="text-2xl font-bold text-green-700">{data?.thisYear.registrations || 0}</p>
+	                  <p className="text-xs text-green-600">Iscrizioni</p>
+	                </div>
+	                <div className="text-center p-3 bg-purple-50 rounded-lg">
+	                  <p className="text-lg font-bold text-purple-700">{formatCurrency(data?.thisYear.revenue || 0)}</p>
+	                  <p className="text-xs text-purple-600">Fatturato</p>
+	                </div>
+	              </div>
+	            </CardContent>
+	          </Card>
+          </div>
         </div>
 
         {/* Alert Scadenze */}
@@ -483,6 +555,13 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
+              <button
+                onClick={() => setIsQuickEnrollmentOpen(true)}
+                className="flex flex-col items-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg hover:from-purple-100 hover:to-purple-200 transition-all border-2 border-purple-300 font-semibold"
+              >
+                <span className="text-2xl mb-2">⚡</span>
+                <span className="text-sm font-medium text-gray-900 text-center">Iscrizione Rapida</span>
+              </button>
               <Link
                 to="/companies"
                 className="flex flex-col items-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg hover:from-blue-100 hover:to-blue-200 transition-all"
@@ -542,6 +621,16 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Quick Enrollment Wizard */}
+        <QuickEnrollmentWizard
+          isOpen={isQuickEnrollmentOpen}
+          onClose={() => setIsQuickEnrollmentOpen(false)}
+          onSuccess={() => {
+            setIsQuickEnrollmentOpen(false);
+            loadDashboard();
+          }}
+        />
       </div>
     </Layout>
   );

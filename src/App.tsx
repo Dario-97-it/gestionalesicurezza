@@ -14,10 +14,12 @@ const Services = lazy(() => import('./pages/Services'));
 const Instructors = lazy(() => import('./pages/Instructors'));
 const Agents = lazy(() => import('./pages/Agents')); 
 const Editions = lazy(() => import('./pages/Editions'));
+const EditionRegister = lazy(() => import('./pages/EditionRegister'));
 const Attendances = lazy(() => import('./pages/Attendances'));
 const Registrations = lazy(() => import('./pages/Registrations'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Scadenzario = lazy(() => import('./pages/Scadenzario'));
+const Calendar = lazy(() => import('./pages/CalendarView'));
 const EmailSettings = lazy(() => import('./pages/EmailSettings').then(m => ({ default: m.EmailSettings })));
 
 // Loading component
@@ -76,8 +78,9 @@ function AppRoutes() {
         
         {/* Edizioni (Pagina 7) */}
         <Route path="/editions" element={<ProtectedRoute><Editions /></ProtectedRoute>} />
+        <Route path="/editions/:id/register" element={<ProtectedRoute><EditionRegister /></ProtectedRoute>} />
         
-        {/* Registro Presenze (Pagina 8) */}
+        {/* Registro Presenze (Pagina 8) - Legacy, ora integrato in EditionRegister */}
         <Route path="/attendances" element={<ProtectedRoute><Attendances /></ProtectedRoute>} />
         
         {/* Iscrizioni (Pagina 9) */}
@@ -89,7 +92,10 @@ function AppRoutes() {
         {/* Scadenzario (Nuova Pagina integrata in Report/Compliance) */}
         <Route path="/scadenzario" element={<ProtectedRoute><Scadenzario /></ProtectedRoute>} />
         
-        {/* Impostazioni (Pagina 11) */}
+        {/* Calendario (Pagina 12) */}
+        <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+        
+        {/* Impostazioni (Pagina 13) */}
         <Route path="/settings" element={<ProtectedRoute><EmailSettings /></ProtectedRoute>} />
         
         <Route path="*" element={<Navigate to="/" replace />} />

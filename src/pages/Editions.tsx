@@ -5,7 +5,8 @@ import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState, Pagination } from '../components/ui/Table';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
-import { editionsApi, coursesApi, instructorsApi, companiesApi } from '../lib/api';
+	import { editionsApi, coursesApi, instructorsApi, companiesApi } from '../lib/api';
+	import { useNavigate } from 'react-router-dom';
 import type { CourseEdition, Course, Instructor, Company } from '../types';
 import toast from 'react-hot-toast';
 
@@ -19,8 +20,9 @@ interface Session {
   notes?: string;
 }
 
-export default function Editions() {
-  const [editions, setEditions] = useState<CourseEdition[]>([]);
+	export default function Editions() {
+	  const navigate = useNavigate();
+	  const [editions, setEditions] = useState<CourseEdition[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -61,6 +63,10 @@ export default function Editions() {
     status: 'scheduled',
     notes: '',
   });
+
+  // Prezzi per azienda (multi-azienda)
+  const [selectedCompanies, setSelectedCompanies] = useState<number[]>([]);
+  const [companyPrices, setCompanyPrices] = useState<Record<number, string>>({});
 
   const statusOptions = [
     { value: 'scheduled', label: 'Programmata', color: 'bg-blue-100 text-blue-700' },
@@ -166,7 +172,27 @@ export default function Editions() {
       status: 'scheduled',
       notes: '',
     });
+    setSelectedCompanies([]);
+    setCompanyPrices({});
     setIsModalOpen(true);
+  };
+
+  const toggleCompanySelection = (companyId: number) => {
+    setSelectedCompanies(prev => {
+      if (prev.includes(companyId)) {
+        const newPrices = { ...companyPrices };
+        delete newPrices[companyId];
+        setCompanyPrices(newPrices);
+        return prev.filter(id => id !== companyId);
+      } else {
+        setCompanyPrices(prev => ({ ...prev, [companyId]: formData.price }));
+        return [...prev, companyId];
+      }
+    });
+  };
+
+  const updateCompanyPrice = (companyId: number, price: string) => {
+    setCompanyPrices(prev => ({ ...prev, [companyId]: price }));
   };
 
   const openEditModal = (edition: CourseEdition) => {
@@ -512,13 +538,20 @@ export default function Editions() {
                         >
                           {expandedEdition === edition.id ? '🔼' : '🔽'}
                         </button>
-                        <button
-                          onClick={() => sendCalendarInvite(edition.id)}
-                          className="p-2 text-blue-400 hover:text-blue-600"
-                          title="Invia invito calendario al docente"
-                        >
-                          ✉️
-                        </button>
+	                        <button
+	                          onClick={() => sendCalendarInvite(edition.id)}
+	                          className="p-2 text-blue-400 hover:text-blue-600"
+	                          title="Invia invito calendario al docente"
+	                        >
+	                          ✉️
+	                        </button>
+		                        <button
+		                          onClick={() => navigate(`/editions/${edition.id}/register`)}
+		                          className="p-2 text-green-400 hover:text-green-600"
+		                          title="Apri Registro Edizione"
+		                        >
+		                          📋
+		                        </button>
                         <button
                           onClick={() => openEditModal(edition)}
                           className="p-2 text-gray-400 hover:text-blue-600"
@@ -663,6 +696,44 @@ export default function Editions() {
                   <option key={company.id} value={company.id}>{company.name}</option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {formData.editionType === 'multi' && (
+            <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+              <label className="block text-sm font-medium text-orange-800 mb-2">Aziende Partecipanti e Prezzi</label>
+              <p className="text-xs text-orange-600 mb-3">Seleziona le aziende e imposta un prezzo personalizzato per ciascuna.</p>
+              <div className="max-h-48 overflow-y-auto space-y-2">
+                {companies.map(company => (
+                  <div key={company.id} className="flex items-center gap-3 p-2 bg-white rounded border">
+                    <input
+                      type="checkbox"
+                      checked={selectedCompanies.includes(company.id)}
+                      onChange={() => toggleCompanySelection(company.id)}
+                      className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                    />
+                    <span className="flex-1 text-sm font-medium text-gray-700">{company.name}</span>
+                    {selectedCompanies.includes(company.id) && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500">€</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={companyPrices[company.id] || formData.price}
+                          onChange={(e) => updateCompanyPrice(company.id, e.target.value)}
+                          className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-orange-500 focus:border-orange-500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {selectedCompanies.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-orange-200 text-sm text-orange-700">
+                  <strong>{selectedCompanies.length}</strong> aziende selezionate
+                </div>
+              )}
             </div>
           )}
 

@@ -11,7 +11,8 @@ import {
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { exportToExcel } from '../lib/excel';
+	import { exportToExcel } from '../lib/excel';
+	import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 interface ReportData {
   // KPI principali
@@ -80,31 +81,61 @@ async function fetchReportData(year: number): Promise<ReportData> {
   return response.json();
 }
 
-export default function Reports() {
-  const [data, setData] = useState<ReportData | null>(null);
+	export default function Reports() {
+	  const [data, setData] = useState<ReportData | null>(null);
+	  const [studentsToRecover, setStudentsToRecover] = useState<any[]>([]);
+	  const [expiringCertificates, setExpiringCertificates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    loadReports();
-  }, [selectedYear]);
-
-  const loadReports = async () => {
-    try {
-      setLoading(true);
-      const reportData = await fetchReportData(selectedYear);
-      setData(reportData);
-      setError(null);
-    } catch (err: any) {
-      console.error('Error loading reports:', err);
-      setError(err.message || 'Errore nel caricamento');
-      // Dati di esempio per test
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+	  useEffect(() => {
+	    loadReports();
+	    loadAdvancedReports();
+	  }, [selectedYear]);
+	
+	  const loadReports = async () => {
+	    try {
+	      setLoading(true);
+	      const reportData = await fetchReportData(selectedYear);
+	      setData(reportData);
+	      setError(null);
+	    } catch (err: any) {
+	      console.error('Error loading reports:', err);
+	      setError(err.message || 'Errore nel caricamento');
+	      // Dati di esempio per test
+	      setData(null);
+	    } finally {
+	      setLoading(false);
+	    }
+	  };
+	
+	  const loadAdvancedReports = async () => {
+	    try {
+	      const token = localStorage.getItem('accessToken');
+	      
+	      // Studenti da Recuperare
+	      const recoverRes = await fetch('/api/reports/students-to-recover', {
+	        headers: { 'Authorization': `Bearer ${token}` }
+	      });
+	      if (recoverRes.ok) {
+	        const data = await recoverRes.json();
+	        setStudentsToRecover(data.students || []);
+	      }
+	
+	      // Certificati in Scadenza
+	      const expiringRes = await fetch('/api/reports/expiring-certificates', {
+	        headers: { 'Authorization': `Bearer ${token}` }
+	      });
+	      if (expiringRes.ok) {
+	        const data = await expiringRes.json();
+	        setExpiringCertificates(data.certificates || []);
+	      }
+	
+	    } catch (err) {
+	      console.error('Error loading advanced reports:', err);
+	    }
+	  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('it-IT', {
@@ -131,18 +162,43 @@ export default function Reports() {
     exportToExcel(exportData, `report_kpi_${selectedYear}`);
   };
 
-  const handleExportMonthly = () => {
-    if (!data) return;
-    
-    const exportData = data.monthlyTrend.map(m => ({
-      'Mese': m.month,
-      'Iscrizioni': m.registrations,
-      'Edizioni': m.editions,
-      'Fatturato': formatCurrency(m.revenue),
-    }));
-
-    exportToExcel(exportData, `report_mensile_${selectedYear}`);
-  };
+	  const handleExportMonthly = () => {
+	    if (!data) return;
+	    
+	    const exportData = data.monthlyTrend.map(m => ({
+	      'Mese': m.month,
+	      'Iscrizioni': m.registrations,
+	      'Edizioni': m.editions,
+	      'Fatturato': formatCurrency(m.revenue),
+	    }));
+	
+	    exportToExcel(exportData, `report_mensile_${selectedYear}`);
+	  };
+	
+	  const handleExportStudentsToRecover = () => {
+	    if (studentsToRecover.length === 0) return;
+	    const exportData = studentsToRecover.map(s => ({
+	      'Studente': s.studentName,
+	      'Corso': s.courseName,
+	      'Edizione': s.editionName,
+	      'Data Fine Edizione': s.editionEndDate,
+	      'Presenza %': `${s.attendancePercentage}%`,
+	      'Motivo Recupero': s.reason,
+	    }));
+	    exportToExcel(exportData, `report_studenti_da_recuperare`);
+	  };
+	
+	  const handleExportExpiringCertificates = () => {
+	    if (expiringCertificates.length === 0) return;
+	    const exportData = expiringCertificates.map(c => ({
+	      'Studente': c.studentName,
+	      'Azienda': c.companyName,
+	      'Corso': c.courseName,
+	      'Data Scadenza': c.expiryDate,
+	      'Giorni Rimanenti': c.daysRemaining,
+	    }));
+	    exportToExcel(exportData, `report_certificati_in_scadenza`);
+	  };
 
   // Genera anni disponibili (ultimi 5 anni)
   const availableYears = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -152,15 +208,15 @@ export default function Reports() {
     return max > 0 ? Math.max((value / max) * 100, 4) : 4;
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
+	  if (loading) {
+	    return (
+	      <Layout>
+	        <div className="flex items-center justify-center h-64">
+	          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+	        </div>
+	      </Layout>
+	    );
+	  }
 
   return (
     <Layout>
@@ -197,8 +253,95 @@ export default function Reports() {
 
         {data && (
           <>
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+	            {/* Report Avanzati */}
+	            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+	              {/* Studenti da Recuperare */}
+	              <Card>
+	                <CardHeader className="flex flex-row items-center justify-between">
+	                  <CardTitle className="flex items-center gap-2 text-red-600">
+	                    <AcademicCapIcon className="h-5 w-5" />
+	                    Studenti da Recuperare ({studentsToRecover.length})
+	                  </CardTitle>
+	                  <Button variant="secondary" size="sm" onClick={handleExportStudentsToRecover} disabled={studentsToRecover.length === 0}>
+	                    <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+	                    Esporta
+	                  </Button>
+	                </CardHeader>
+	                <CardContent className="p-0">
+	                  {studentsToRecover.length > 0 ? (
+	                    <div className="overflow-x-auto">
+	                      <Table>
+	                        <TableHeader>
+	                          <TableRow>
+	                            <TableHead>Studente</TableHead>
+	                            <TableHead>Corso</TableHead>
+	                            <TableHead>Presenza %</TableHead>
+	                            <TableHead>Motivo</TableHead>
+	                          </TableRow>
+	                        </TableHeader>
+	                        <TableBody>
+	                          {studentsToRecover.slice(0, 5).map((s, index) => (
+	                            <TableRow key={index}>
+	                              <TableCell className="font-medium">{s.studentName}</TableCell>
+	                              <TableCell>{s.courseName}</TableCell>
+	                              <TableCell className="text-center">{s.attendancePercentage}%</TableCell>
+	                              <TableCell className="text-red-600">{s.reason}</TableCell>
+	                            </TableRow>
+	                          ))}
+	                        </TableBody>
+	                      </Table>
+	                    </div>
+	                  ) : (
+	                    <p className="text-center text-gray-500 py-4">Nessuno studente da recuperare. Ottimo lavoro!</p>
+	                  )}
+	                </CardContent>
+	              </Card>
+	
+	              {/* Certificati in Scadenza */}
+	              <Card>
+	                <CardHeader className="flex flex-row items-center justify-between">
+	                  <CardTitle className="flex items-center gap-2 text-orange-600">
+	                    <CalendarDaysIcon className="h-5 w-5" />
+	                    Certificati in Scadenza ({expiringCertificates.length})
+	                  </CardTitle>
+	                  <Button variant="secondary" size="sm" onClick={handleExportExpiringCertificates} disabled={expiringCertificates.length === 0}>
+	                    <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+	                    Esporta
+	                  </Button>
+	                </CardHeader>
+	                <CardContent className="p-0">
+	                  {expiringCertificates.length > 0 ? (
+	                    <div className="overflow-x-auto">
+	                      <Table>
+	                        <TableHeader>
+	                          <TableRow>
+	                            <TableHead>Studente</TableHead>
+	                            <TableHead>Corso</TableHead>
+	                            <TableHead>Scadenza</TableHead>
+	                            <TableHead>Giorni</TableHead>
+	                          </TableRow>
+	                        </TableHeader>
+	                        <TableBody>
+	                          {expiringCertificates.slice(0, 5).map((c, index) => (
+	                            <TableRow key={index}>
+	                              <TableCell className="font-medium">{c.studentName}</TableCell>
+	                              <TableCell>{c.courseName}</TableCell>
+	                              <TableCell className="text-orange-600">{c.expiryDate}</TableCell>
+	                              <TableCell className="text-center">{c.daysRemaining}</TableCell>
+	                            </TableRow>
+	                          ))}
+	                        </TableBody>
+	                      </Table>
+	                    </div>
+	                  ) : (
+	                    <p className="text-center text-gray-500 py-4">Nessun certificato in scadenza nei prossimi 90 giorni.</p>
+	                  )}
+	                </CardContent>
+	              </Card>
+	            </div>
+	
+	            {/* KPI Cards */}
+	            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">

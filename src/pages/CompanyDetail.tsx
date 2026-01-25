@@ -93,11 +93,42 @@ export default function CompanyDetail() {
     fetchCompanyData();
   }, [fetchCompanyData]);
 
-  const viewStudentDetail = (student: Student) => {
-    navigate(`/students/${student.id}`);
-  };
-
-  if (isLoading) {
+	  const viewStudentDetail = (student: Student) => {
+	    navigate(`/students/${student.id}`);
+	  };
+	
+	  const formatDate = (dateString?: string) => {
+	    if (!dateString) return '-';
+	    try {
+	      return new Date(dateString).toLocaleDateString('it-IT');
+	    } catch {
+	      return dateString;
+	    }
+	  };
+	
+	  const getStatusBadge = (status: string) => {
+	    const statusColors: Record<string, string> = {
+	      'completed': 'bg-green-100 text-green-800',
+	      'confirmed': 'bg-blue-100 text-blue-800',
+	      'pending': 'bg-yellow-100 text-yellow-800',
+	      'cancelled': 'bg-red-100 text-red-800',
+	      'failed': 'bg-red-100 text-red-800',
+	    };
+	    return statusColors[status] || 'bg-gray-100 text-gray-800';
+	  };
+	
+	  const getStatusLabel = (status: string) => {
+	    const labels: Record<string, string> = {
+	      'completed': 'Completato',
+	      'confirmed': 'Confermato',
+	      'pending': 'In Attesa',
+	      'cancelled': 'Annullato',
+	      'failed': 'Bocciato',
+	    };
+	    return labels[status] || status;
+	  };
+	
+	  if (isLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">

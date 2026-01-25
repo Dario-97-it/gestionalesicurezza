@@ -72,6 +72,7 @@ export const companies = sqliteTable("companies", {
   atecoCode: text("atecoCode"),
   agentId: integer("agentId").references(() => agents.id, { onDelete: "set null" }),
   uniqueCode: text("uniqueCode"), // Codice univoco fatturazione
+  riskCategory: text("riskCategory", { enum: ["low", "medium", "high"] }).default("low").notNull(), // Nuovo campo per 81/08
   notes: text("notes"),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
@@ -115,6 +116,8 @@ export const students = sqliteTable("students", {
   address: text("address"),
   companyId: integer("companyId").references(() => companies.id, { onDelete: "set null" }),
   jobTitle: text("jobTitle"),
+  jobRole: text("jobRole", { enum: ["operaio", "impiegato", "dirigente", "preposto", "altro"] }).default("altro"), // Mansione: Operaio, Impiegato, Dirigente, ecc.
+  riskLevel: text("riskLevel", { enum: ["low", "medium", "high"] }).default("low"), // Livello Rischio per 81/08
   atecoCode: text("atecoCode"),
   agentId: integer("agentId").references(() => agents.id, { onDelete: "set null" }),
   notes: text("notes"),
@@ -136,7 +139,10 @@ export const courses = sqliteTable("courses", {
   type: text("type"),
   durationHours: integer("durationHours").notNull(),
   defaultPrice: integer("defaultPrice").notNull(),
-  certificateValidityMonths: integer("certificateValidityMonths").notNull(),
+  certificateValidityMonths: integer("certificateValidityMonths"), // Validità corso in mesi (facoltativo)
+  minRiskLevel: text("minRiskLevel", { enum: ["low", "medium", "high"] }), // Livello rischio minimo richiesto
+  hasPrerequisite: integer("hasPrerequisite", { mode: "boolean" }).default(false), // Se richiede corso prerequisito
+  prerequisiteCourseId: integer("prerequisiteCourseId").references(() => courses.id, { onDelete: "set null" }), // Corso prerequisito
   description: text("description"),
   isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
@@ -194,11 +200,13 @@ export const registrations = sqliteTable("registrations", {
   courseEditionId: integer("courseEditionId").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
   companyId: integer("companyId").references(() => companies.id, { onDelete: "set null" }),
   registrationDate: text("registrationDate").notNull().$defaultFn(() => new Date().toISOString()),
-  status: text("status", { enum: ["pending", "confirmed", "completed", "cancelled"] }).default("pending").notNull(),
+  status: text("status", { enum: ["pending", "confirmed", "completed", "failed", "cancelled"] }).default("pending").notNull(), // Aggiunto 'failed'
   priceApplied: integer("priceApplied").notNull(),
+  certificateDate: text("certificateDate"), // Data rilascio attestato
   notes: text("notes"),
   invoiceId: text("invoiceId"),
   invoiceStatus: text("invoiceStatus", { enum: ["none", "draft", "sent", "paid", "partial"] }).default("none"),
+  recommendedNextEditionId: integer("recommendedNextEditionId").references(() => courseEditions.id, { onDelete: "set null" }), // Prossimo corso consigliato (se bocciato)
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => ({
@@ -216,8 +224,12 @@ export const attendances = sqliteTable("attendances", {
   studentId: integer("studentId").references(() => students.id, { onDelete: "cascade" }),
   courseEditionId: integer("courseEditionId").references(() => courseEditions.id, { onDelete: "cascade" }),
   attendanceDate: text("attendanceDate").notNull(),
-  status: text("status", { enum: ["present", "absent", "late", "justified"] }).default("present").notNull(),
-  hoursAttended: integer("hoursAttended"),
+  signInTime: text("signInTime"), // Timestamp di entrata con firma
+  signOutTime: text("signOutTime"), // Timestamp di uscita con firma
+  signatureHash: text("signatureHash"), // Hash della firma digitale (es. OTP)
+  signatureMethod: text("signatureMethod", { enum: ["manual", "otp", "qr_code"] }).default("manual"),
+  status: text("status", { enum: ["present", "absent", "late", "justified"] }).default("present").notNull(), // Mantenuto per compatibilità
+  hoursAttended: integer("hoursAttended"), // Mantenuto per compatibilità
   notes: text("notes"),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
@@ -268,3 +280,30 @@ export const emailSettings = sqliteTable("emailSettings", {
   resendApiKey: text("resendApiKey"),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
 });
+
+/**
+ * Edition Company Prices table - Prezzi specifici per azienda in edizioni multi-aziendali
+ */
+export const editionCompanyPrices = sqliteTable("editionCompanyPrices", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  editionId: integer("editionId").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
+  companyId: integer("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  price: integer("price").notNull(),
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  clientIdIdx: index("edition_price_clientId_idx").on(table.clientId),
+  uniquePrice: unique().on(table.editionId, table.companyId),
+}));
+
+export const editionCompanyPricesRelations = relations(editionCompanyPrices, ({ one }) => ({
+  edition: one(courseEditions, {
+    fields: [editionCompanyPrices.editionId],
+    references: [courseEditions.id],
+  }),
+  company: one(companies, {
+    fields: [editionCompanyPrices.companyId],
+    references: [companies.id],
+  }),
+}));

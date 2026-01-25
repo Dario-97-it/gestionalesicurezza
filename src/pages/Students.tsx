@@ -36,6 +36,8 @@ export default function Students() {
     birthPlace: '',
     address: '',
     companyId: '',
+    jobRole: '',
+    riskLevel: '',
   });
 
   // CF validation state
@@ -185,6 +187,8 @@ export default function Students() {
       birthPlace: '',
       address: '',
       companyId: '',
+      jobRole: '',
+      riskLevel: '',
     });
     setCfValidation(null);
     setCfAutoFilled({ birthDate: false, birthPlace: false });
@@ -209,6 +213,8 @@ export default function Students() {
       birthPlace: student.birthPlace || '',
       address: student.address || '',
       companyId: student.companyId ? String(student.companyId) : '',
+      jobRole: (student as any).jobRole || '',
+      riskLevel: (student as any).riskLevel || '',
     });
     setCfAutoFilled({ birthDate: false, birthPlace: false });
     setIsModalOpen(true);
@@ -600,6 +606,49 @@ export default function Students() {
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
+
+          {/* D.Lgs. 81/08 Compliance Fields */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+            <h3 className="font-semibold text-blue-900 text-sm">Dati di Sicurezza (D.Lgs. 81/08)</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Mansione *
+                </label>
+                <select
+                  name="jobRole"
+                  value={formData.jobRole}
+                  onChange={(e) => setFormData({ ...formData, jobRole: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Seleziona mansione</option>
+                  <option value="operaio">Operaio</option>
+                  <option value="impiegato">Impiegato</option>
+                  <option value="dirigente">Dirigente</option>
+                  <option value="preposto">Preposto</option>
+                  <option value="altro">Altro</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Livello Rischio *
+                </label>
+                <select
+                  name="riskLevel"
+                  value={formData.riskLevel}
+                  onChange={(e) => setFormData({ ...formData, riskLevel: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Seleziona livello rischio</option>
+                  <option value="low">Basso</option>
+                  <option value="medium">Medio</option>
+                  <option value="high">Alto</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Azienda</label>

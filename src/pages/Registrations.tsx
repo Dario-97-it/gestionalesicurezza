@@ -6,6 +6,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState, Pagination } from '../components/ui/Table';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { registrationsApi, editionsApi, studentsApi, coursesApi } from '../lib/api';
+import { BulkEnrollmentModal } from '../components/BulkEnrollmentModal';
 import { useNavigate } from 'react-router-dom';
 import type { Registration, CourseEdition, Student, Course, PaginatedResponse } from '../types';
 
@@ -21,6 +22,7 @@ export default function Registrations() {
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false); // New state for bulk enrollment
   const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -201,14 +203,14 @@ export default function Registrations() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Iscrizioni</h1>
             <p className="text-gray-600 mt-1">Gestione delle iscrizioni ai corsi</p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={openCreateModal}>
-              + Nuova Iscrizione
-            </Button>
-            <Button onClick={() => navigate('/registrations/batch')} className="bg-blue-600 hover:bg-blue-700">
-              📥 Importa Batch
-            </Button>
-          </div>
+	          <div className="flex gap-2">
+	            <Button onClick={openCreateModal}>
+	              + Iscrizione Singola
+	            </Button>
+	            <Button onClick={() => setIsBulkModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+	              👥 Iscrizione Massiva
+	            </Button>
+	          </div>
         </div>
 
         {/* Messages */}
@@ -412,15 +414,27 @@ export default function Registrations() {
       </Modal>
 
       {/* Delete Confirmation */}
-      <ConfirmDialog
-        isOpen={isDeleteDialogOpen}
-        onClose={() => setIsDeleteDialogOpen(false)}
-        onConfirm={handleDelete}
-        title="Elimina Iscrizione"
-        message="Sei sicuro di voler eliminare questa iscrizione? Questa azione non può essere annullata."
-        confirmText="Elimina"
-        isLoading={isSaving}
-      />
-    </Layout>
-  );
-}
+	      <ConfirmDialog
+	        isOpen={isDeleteDialogOpen}
+	        onClose={() => setIsDeleteDialogOpen(false)}
+	        onConfirm={handleDelete}
+	        title="Elimina Iscrizione"
+	        message="Sei sicuro di voler eliminare questa iscrizione? Questa azione non può essere annullata."
+	        confirmText="Elimina"
+	        isLoading={isSaving}
+	      />
+
+        {/* Bulk Enrollment Modal */}
+        <BulkEnrollmentModal
+          isOpen={isBulkModalOpen}
+          onClose={() => setIsBulkModalOpen(false)}
+          onSuccess={() => {
+            setIsBulkModalOpen(false);
+            fetchRegistrations(pagination.page);
+            setMessage({ type: 'success', text: 'Iscrizione massiva completata con successo!' });
+            setTimeout(() => setMessage(null), 3000);
+          }}
+        />
+	    </Layout>
+	  );
+	}
