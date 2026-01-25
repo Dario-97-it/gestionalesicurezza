@@ -1,11 +1,11 @@
 /**
  * API Agents - Gestione agenti commerciali
- * GET /api/agents - Lista agenti
+ * GET /api/agents - Lista agenti con statistiche studenti/aziende
  * POST /api/agents - Crea nuovo agente
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, desc, count } from 'drizzle-orm';
+import { eq, desc, count, sql } from 'drizzle-orm';
 import * as schema from '../../drizzle/schema';
 
 interface Env {
@@ -19,13 +19,13 @@ interface AuthContext {
   role: string;
 }
 
-// GET - Lista agenti
+// GET - Lista agenti con statistiche
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
   const auth = context.data.auth as AuthContext;
 
   if (!auth) {
-    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -53,11 +53,30 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       .limit(pageSize)
       .offset(offset);
 
+    // Per ogni agente, conta studenti e aziende collegati
+    const agentsWithStats = await Promise.all(agents.map(async (agent) => {
+      // Conta studenti collegati a questo agente
+      const studentsCount = await db.select({ count: count() })
+        .from(schema.students)
+        .where(eq(schema.students.agentId, agent.id));
+
+      // Conta aziende collegate a questo agente
+      const companiesCount = await db.select({ count: count() })
+        .from(schema.companies)
+        .where(eq(schema.companies.agentId, agent.id));
+
+      return {
+        ...agent,
+        studentsCount: studentsCount[0]?.count || 0,
+        companiesCount: companiesCount[0]?.count || 0,
+      };
+    }));
+
     const totalPages = Math.ceil(total / pageSize);
 
     return new Response(JSON.stringify({
       success: true,
-      data: agents,
+      data: agentsWithStats,
       page,
       pageSize,
       total,
@@ -69,7 +88,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('List agents error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
+    return new Response(JSON.stringify({ success: false, error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -82,7 +101,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const auth = context.data.auth as AuthContext;
 
   if (!auth) {
-    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -94,7 +113,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // Validazione
     if (!name) {
-      return new Response(JSON.stringify({ error: 'Nome agente obbligatorio' }), {
+      return new Response(JSON.stringify({ success: false, error: 'Nome agente obbligatorio' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -123,7 +142,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Create agent error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
+    return new Response(JSON.stringify({ success: false, error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

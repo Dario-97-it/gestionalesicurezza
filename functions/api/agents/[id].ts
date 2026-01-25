@@ -1,5 +1,6 @@
 /**
- * API Agents - Operazioni su singolo agente
+ * API Agent Detail - Dettaglio singolo agente
+ * GET /api/agents/:id - Dettaglio agente con studenti e aziende collegati
  * PUT /api/agents/:id - Modifica agente
  * DELETE /api/agents/:id - Elimina agente
  */
@@ -19,6 +20,117 @@ interface AuthContext {
   role: string;
 }
 
+// GET - Dettaglio agente con studenti e aziende
+export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { env, params } = context;
+  const auth = context.data.auth as AuthContext;
+
+  if (!auth) {
+    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const agentId = parseInt(params.id as string);
+  if (isNaN(agentId)) {
+    return new Response(JSON.stringify({ success: false, error: 'ID agente non valido' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  try {
+    const db = drizzle(env.DB, { schema });
+
+    // Get agent
+    const agents = await db.select()
+      .from(schema.agents)
+      .where(and(
+        eq(schema.agents.id, agentId),
+        eq(schema.agents.clientId, auth.clientId)
+      ));
+
+    if (agents.length === 0) {
+      return new Response(JSON.stringify({ success: false, error: 'Agente non trovato' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const agent = agents[0];
+
+    // Get students linked to this agent
+    const students = await db.select({
+      id: schema.students.id,
+      firstName: schema.students.firstName,
+      lastName: schema.students.lastName,
+      fiscalCode: schema.students.fiscalCode,
+      email: schema.students.email,
+      phone: schema.students.phone,
+      companyId: schema.students.companyId,
+      createdAt: schema.students.createdAt,
+    })
+      .from(schema.students)
+      .where(and(
+        eq(schema.students.agentId, agentId),
+        eq(schema.students.clientId, auth.clientId)
+      ));
+
+    // Get companies linked to this agent
+    const companies = await db.select({
+      id: schema.companies.id,
+      name: schema.companies.name,
+      vatNumber: schema.companies.vatNumber,
+      email: schema.companies.email,
+      phone: schema.companies.phone,
+      city: schema.companies.city,
+      createdAt: schema.companies.createdAt,
+    })
+      .from(schema.companies)
+      .where(and(
+        eq(schema.companies.agentId, agentId),
+        eq(schema.companies.clientId, auth.clientId)
+      ));
+
+    // Enrich students with company name
+    const studentsWithCompany = await Promise.all(students.map(async (student) => {
+      let companyName = null;
+      if (student.companyId) {
+        const company = await db.select({ name: schema.companies.name })
+          .from(schema.companies)
+          .where(eq(schema.companies.id, student.companyId));
+        companyName = company[0]?.name || null;
+      }
+      return {
+        ...student,
+        companyName,
+      };
+    }));
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        ...agent,
+        students: studentsWithCompany,
+        companies: companies,
+        studentsCount: students.length,
+        companiesCount: companies.length,
+      },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  } catch (error: any) {
+    console.error('Get agent detail error:', error);
+    return new Response(JSON.stringify({ success: false, error: 'Errore interno del server', details: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+};
+
 // PUT - Modifica agente
 export const onRequestPut: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
@@ -26,7 +138,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   const agentId = parseInt(context.params.id as string);
 
   if (!auth) {
-    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -38,7 +150,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
     // Validazione
     if (!name) {
-      return new Response(JSON.stringify({ error: 'Nome agente obbligatorio' }), {
+      return new Response(JSON.stringify({ success: false, error: 'Nome agente obbligatorio' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -63,7 +175,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       .returning();
 
     if (result.length === 0) {
-      return new Response(JSON.stringify({ error: 'Agente non trovato' }), {
+      return new Response(JSON.stringify({ success: false, error: 'Agente non trovato' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -79,7 +191,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Update agent error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
+    return new Response(JSON.stringify({ success: false, error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -93,7 +205,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
   const agentId = parseInt(context.params.id as string);
 
   if (!auth) {
-    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -114,7 +226,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       .limit(1);
 
     if (existing.length === 0) {
-      return new Response(JSON.stringify({ error: 'Agente non trovato' }), {
+      return new Response(JSON.stringify({ success: false, error: 'Agente non trovato' }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -137,7 +249,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Delete agent error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
+    return new Response(JSON.stringify({ success: false, error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
