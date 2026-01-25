@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, or, inArray } from 'drizzle-orm';
-import * as schema from '../drizzle/schema';
+import * as schema from '../../../drizzle/schema';
 
 type Bindings = {
   DB: D1Database;

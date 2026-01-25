@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, and, sql, gte, lte } from 'drizzle-orm';
-import * as schema from '../drizzle/schema';
+import * as schema from '../../../drizzle/schema';
 
 interface Env {
   DB: D1Database;
