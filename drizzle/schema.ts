@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, index, unique } from "drizzle-orm/sqlite-core";
+import { relations } from "drizzle-orm";
 
 /**
  * Clients table - Clienti che acquistano l'abbonamento al gestionale
@@ -170,6 +171,19 @@ export const courseEditions = sqliteTable("courseEditions", {
   clientIdIdx: index("edition_clientId_idx").on(table.clientId),
 }));
 
+export const courseEditionsRelations = relations(courseEditions, ({ one, many }) => ({
+  course: one(courses, {
+    fields: [courseEditions.courseId],
+    references: [courses.id],
+  }),
+  instructor: one(instructors, {
+    fields: [courseEditions.instructorId],
+    references: [instructors.id],
+  }),
+  sessions: many(editionSessions),
+  registrations: many(registrations),
+}));
+
 /**
  * Registrations table - Iscrizioni
  */
@@ -209,6 +223,33 @@ export const attendances = sqliteTable("attendances", {
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => ({
   clientIdIdx: index("att_clientId_idx").on(table.clientId),
+}));
+
+/**
+ * Edition Sessions table - Sessioni giornaliere di un'edizione
+ */
+export const editionSessions = sqliteTable("editionSessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  clientId: integer("clientId").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  editionId: integer("editionId").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
+  sessionDate: text("sessionDate").notNull(),
+  startTime: text("startTime").notNull(),
+  endTime: text("endTime").notNull(),
+  hours: integer("hours").notNull(),
+  location: text("location"),
+  notes: text("notes"),
+  createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
+}, (table) => ({
+  clientIdIdx: index("session_clientId_idx").on(table.clientId),
+  editionIdIdx: index("session_editionId_idx").on(table.editionId),
+}));
+
+export const editionSessionsRelations = relations(editionSessions, ({ one }) => ({
+  edition: one(courseEditions, {
+    fields: [editionSessions.editionId],
+    references: [courseEditions.id],
+  }),
 }));
 
 /**
