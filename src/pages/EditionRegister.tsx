@@ -142,7 +142,7 @@ export default function EditionRegister() {
       const token = localStorage.getItem('accessToken');
       
       // Bulk create registrations
-      const response = await fetch('/api/registrations/bulk', {
+      const response = await fetch('/api/registrations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
