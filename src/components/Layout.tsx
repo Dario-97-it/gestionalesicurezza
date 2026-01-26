@@ -67,8 +67,7 @@ export function Layout({ children }: LayoutProps) {
       )}>
         <div className="flex h-16 shrink-0 items-center justify-between">
           <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center">
-            <img src="/logo.png" alt="GestionaleSicurezza" className="h-10 w-auto mr-2" />
-            <span className="text-lg font-bold text-blue-600">GestionaleSicurezza</span>
+            <img src="/logo.png" alt="GestionaleSicurezza" className="h-10 w-auto" />
           </Link>
           <button onClick={() => setSidebarOpen(false)} className="p-2.5 text-gray-700">
             <XMarkIcon className="h-6 w-6" />
@@ -102,8 +101,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 pb-4">
           <div className="flex h-16 shrink-0 items-center">
             <Link to="/" className="flex items-center">
-              <img src="/logo.png" alt="GestionaleSicurezza" className="h-12 w-auto mr-2" />
-              <span className="text-xl font-bold text-blue-600">GestionaleSicurezza</span>
+              <img src="/logo.png" alt="GestionaleSicurezza" className="h-12 w-auto" />
             </Link>
           </div>
           <nav className="flex flex-1 flex-col">
