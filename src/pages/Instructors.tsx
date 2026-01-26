@@ -6,10 +6,12 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState, Pagination } from '../components/ui/Table';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { Badge } from '../components/ui/Badge';
+import { useNavigate } from 'react-router-dom';
 import { instructorsApi } from '../lib/api';
 import type { Instructor, PaginatedResponse } from '../types';
 
 export default function Instructors() {
+  const navigate = useNavigate();
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState('');
@@ -278,6 +280,13 @@ export default function Instructors() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => navigate(`/instructors/${instructor.id}`)}
+                              className="p-1 text-gray-400 hover:text-green-600"
+                              title="Visualizza Dettagli"
+                            >
+                              👁️
+                            </button>
                             <button
                               onClick={() => openEditModal(instructor)}
                               className="p-1 text-gray-400 hover:text-blue-600"

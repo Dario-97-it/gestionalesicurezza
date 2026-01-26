@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -56,6 +56,7 @@ export default function Scadenzario() {
       
       if (result.success) {
         setScadenze(result.data);
+        // Estrai aziende uniche per il filtro
         const uniqueCompanies = Array.from(new Set(result.data.map((s: Scadenza) => s.companyName))) as string[];
         setCompanies(uniqueCompanies.filter(Boolean));
       }
@@ -134,6 +135,16 @@ export default function Scadenzario() {
     setIsSendingEmails(true);
     try {
       const selectedScadenze = filteredScadenze.filter(s => selectedIds.has(s.id));
+      
+      // Raggruppa per azienda
+      const byCompany = selectedScadenze.reduce((acc, s) => {
+        if (!acc[s.companyName]) {
+          acc[s.companyName] = [];
+        }
+        acc[s.companyName].push(s);
+        return acc;
+      }, {} as Record<string, Scadenza[]>);
+
       const token = localStorage.getItem('accessToken');
       
       const response = await fetch('/api/email/send-bulk-certificate-notices', {
@@ -148,53 +159,12 @@ export default function Scadenzario() {
       if (response.ok) {
         const result = await response.json();
         toast.success(`Inviate ${result.emailsSent} email di avviso alle aziende`);
-        setSelectedIds(new Set());
-        fetchScadenze();
       } else {
         throw new Error('Errore invio');
       }
+      setSelectedIds(new Set());
     } catch (error) {
       toast.error('Errore nell\'invio delle email');
-    } finally {
-      setIsSendingEmails(false);
-    }
-  };
-
-  const handleCreateUpdateEditions = async () => {
-    if (selectedIds.size === 0) {
-      toast.error('Seleziona almeno una scadenza');
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Stai per creare ${selectedIds.size} edizioni di aggiornamento. Continuare?`
-    );
-    if (!confirmed) return;
-
-    setIsSendingEmails(true);
-    try {
-      const selectedScadenze = filteredScadenze.filter(s => selectedIds.has(s.id));
-      const token = localStorage.getItem('accessToken');
-      
-      const response = await fetch('/api/editions/bulk-create-updates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ scadenze: selectedScadenze })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        toast.success(`Create ${result.editionsCreated} edizioni di aggiornamento`);
-        setSelectedIds(new Set());
-        fetchScadenze();
-      } else {
-        throw new Error('Errore creazione');
-      }
-    } catch (error) {
-      toast.error('Errore nella creazione delle edizioni');
     } finally {
       setIsSendingEmails(false);
     }
@@ -209,24 +179,16 @@ export default function Scadenzario() {
             <h1 className="text-2xl font-bold text-gray-900">Scadenzario Attestati</h1>
             <p className="text-gray-600">Gestione scadenze certificazioni e rinnovi</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2">
             {selectedIds.size > 0 && (
-              <>
-                <Button 
-                  onClick={handleSendBulkEmails} 
-                  className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700"
-                  disabled={isSendingEmails}
-                >
-                  📧 Invia Avvisi ({selectedIds.size})
-                </Button>
-                <Button 
-                  onClick={handleCreateUpdateEditions} 
-                  className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
-                  disabled={isSendingEmails}
-                >
-                  📚 Crea Aggiornamenti ({selectedIds.size})
-                </Button>
-              </>
+              <Button 
+                onClick={handleSendBulkEmails} 
+                variant="primary" 
+                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700"
+                disabled={isSendingEmails}
+              >
+                📧 Invia Avvisi ({selectedIds.size})
+              </Button>
             )}
             <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
               <ArrowDownTrayIcon className="w-4 h-4" />
@@ -308,7 +270,7 @@ export default function Scadenzario() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   </TableCell>
                 </TableRow>
@@ -348,13 +310,6 @@ export default function Scadenzario() {
             </TableBody>
           </Table>
         </Card>
-
-        {/* Stats */}
-        {!loading && scadenze.length > 0 && (
-          <div className="text-sm text-gray-500 text-center">
-            Mostrate {filteredScadenze.length} scadenze di {scadenze.length} totali
-          </div>
-        )}
       </div>
     </Layout>
   );
