@@ -22,6 +22,7 @@ const Registrations = lazy(() => import('./pages/Registrations'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Scadenzario = lazy(() => import('./pages/Scadenzario'));
 const Calendar = lazy(() => import('./pages/CalendarView'));
+const Imports = lazy(() => import('./pages/Imports'));
 const EmailSettings = lazy(() => import('./pages/EmailSettings').then(m => ({ default: m.EmailSettings })));
 
 // Loading component
@@ -98,6 +99,9 @@ function AppRoutes() {
         
         {/* Calendario (Pagina 12) */}
         <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+        
+        {/* Importazioni */}
+        <Route path="/imports" element={<ProtectedRoute><Imports /></ProtectedRoute>} />
         
         {/* Impostazioni (Pagina 13) */}
         <Route path="/settings" element={<ProtectedRoute><EmailSettings /></ProtectedRoute>} />

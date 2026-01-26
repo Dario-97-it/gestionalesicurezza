@@ -16,6 +16,7 @@ import {
   ClockIcon,
   ChartBarIcon,
   Cog6ToothIcon,
+  DocumentArrowUpIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
@@ -29,6 +30,7 @@ const navigation = [
   { name: 'Agenti', href: '/agents', icon: UserPlusIcon },
   { name: 'Edizioni Corsi', href: '/editions', icon: CalendarDaysIcon },
   { name: 'Calendario', href: '/calendar', icon: CalendarDaysIcon },
+  { name: 'Importazioni', href: '/imports', icon: DocumentArrowUpIcon },
   { name: 'Report', href: '/reports', icon: ChartBarIcon },
   { name: 'Scadenzario', href: '/scadenzario', icon: ClockIcon },
   { name: 'Impostazioni', href: '/settings', icon: Cog6ToothIcon },
