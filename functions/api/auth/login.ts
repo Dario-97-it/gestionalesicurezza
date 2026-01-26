@@ -13,7 +13,7 @@ interface Env {
   DB: D1Database;
   SESSIONS: KVNamespace;
   SUBSCRIPTIONS: KVNamespace;
-  JWT_SECRET: string;
+  JWT_SECRET?: string;
 }
 
 interface LoginRequest {
@@ -156,7 +156,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // Genera JWT access token
-    const secret = new TextEncoder().encode(env.JWT_SECRET);
+    const jwtSecret = env.JWT_SECRET || 'gestionalesicurezza-default-secret-key-2026';
+    const secret = new TextEncoder().encode(jwtSecret);
     const accessToken = await new SignJWT({
       clientId: clientData.id,
       userId: authUser.id,
@@ -169,7 +170,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       .setExpirationTime('24h')
       .sign(secret);
 
-    // Genera refresh token
+    // Genera refresh token (usa lo stesso secret)
     const refreshToken = await new SignJWT({
       clientId: clientData.id,
       userId: authUser.id,

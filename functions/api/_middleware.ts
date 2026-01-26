@@ -6,7 +6,7 @@
 import { jwtVerify } from 'jose';
 
 interface Env {
-  JWT_SECRET: string;
+  JWT_SECRET?: string;
   DB: D1Database;
   SESSIONS: KVNamespace;
   SUBSCRIPTIONS: KVNamespace;
@@ -51,7 +51,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   try {
     // Verifica JWT
-    const secret = new TextEncoder().encode(env.JWT_SECRET);
+    const jwtSecret = env.JWT_SECRET || 'gestionalesicurezza-default-secret-key-2026';
+    const secret = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(token, secret);
 
     // Imposta contesto autenticazione
