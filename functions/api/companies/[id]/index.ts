@@ -187,8 +187,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     // Check if company has students
     const studentsCount = await db.select()
       .from(schema.students)
-      .where(eq(schema.students.companyId, companyId))
-      .limit(1);
+      .where(eq(schema.students.companyId, companyId));
 
     if (studentsCount.length > 0) {
       return new Response(JSON.stringify({ 
@@ -199,9 +198,12 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // Delete company
+    // Delete company (verify it belongs to client)
     await db.delete(schema.companies)
-      .where(eq(schema.companies.id, companyId));
+      .where(and(
+        eq(schema.companies.id, companyId),
+        eq(schema.companies.clientId, auth.clientId)
+      ));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
