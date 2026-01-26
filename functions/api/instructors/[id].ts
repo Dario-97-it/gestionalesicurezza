@@ -1,77 +1,74 @@
-import { Router } from 'itty-router';
-import { json } from 'itty-router';
+export const onRequestGet: PagesFunction = async (context) => {
+  const { env } = context;
+  const url = new URL(context.request.url);
+  const id = url.pathname.split('/').pop();
 
-const router = Router();
+  try {
+    const db = env.DB as D1Database;
+    const instructor = await db
+      .prepare('SELECT * FROM instructors WHERE id = ?')
+      .bind(id)
+      .first();
 
-export const onRequest: PagesFunction = async (context) => {
+    if (!instructor) {
+      return new Response(JSON.stringify({ error: 'Docente non trovato' }), { status: 404 });
+    }
+
+    return new Response(JSON.stringify(instructor), { status: 200 });
+  } catch (error) {
+    console.error('Error fetching instructor:', error);
+    return new Response(JSON.stringify({ error: 'Errore nel recupero del docente' }), { status: 500 });
+  }
+};
+
+export const onRequestPut: PagesFunction = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const id = url.pathname.split('/').pop();
 
-  // GET single instructor
-  if (request.method === 'GET') {
-    try {
-      const db = env.DB as D1Database;
-      const instructor = await db
-        .prepare('SELECT * FROM instructors WHERE id = ?')
-        .bind(id)
-        .first();
+  try {
+    const body = await request.json();
+    const db = env.DB as D1Database;
 
-      if (!instructor) {
-        return json({ error: 'Docente non trovato' }, { status: 404 });
-      }
+    const { firstName, lastName, email, phone, specialization, notes } = body;
 
-      return json(instructor);
-    } catch (error) {
-      return json({ error: 'Errore nel recupero del docente' }, { status: 500 });
-    }
+    await db
+      .prepare(
+        `UPDATE instructors 
+         SET firstName = ?, lastName = ?, email = ?, phone = ?, specialization = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      )
+      .bind(firstName, lastName, email, phone, specialization, notes, id)
+      .run();
+
+    const updated = await db
+      .prepare('SELECT * FROM instructors WHERE id = ?')
+      .bind(id)
+      .first();
+
+    return new Response(JSON.stringify(updated), { status: 200 });
+  } catch (error) {
+    console.error('Error updating instructor:', error);
+    return new Response(JSON.stringify({ error: 'Errore nell\'aggiornamento del docente' }), { status: 500 });
   }
+};
 
-  // PUT update instructor
-  if (request.method === 'PUT') {
-    try {
-      const body = await request.json();
-      const db = env.DB as D1Database;
+export const onRequestDelete: PagesFunction = async (context) => {
+  const { env } = context;
+  const url = new URL(context.request.url);
+  const id = url.pathname.split('/').pop();
 
-      const { firstName, lastName, email, phone, specialization, notes } = body;
+  try {
+    const db = env.DB as D1Database;
 
-      await db
-        .prepare(
-          `UPDATE instructors 
-           SET firstName = ?, lastName = ?, email = ?, phone = ?, specialization = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-           WHERE id = ?`
-        )
-        .bind(firstName, lastName, email, phone, specialization, notes, id)
-        .run();
+    await db
+      .prepare('DELETE FROM instructors WHERE id = ?')
+      .bind(id)
+      .run();
 
-      const updated = await db
-        .prepare('SELECT * FROM instructors WHERE id = ?')
-        .bind(id)
-        .first();
-
-      return json(updated);
-    } catch (error) {
-      console.error('Error updating instructor:', error);
-      return json({ error: 'Errore nell\'aggiornamento del docente' }, { status: 500 });
-    }
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
+  } catch (error) {
+    console.error('Error deleting instructor:', error);
+    return new Response(JSON.stringify({ error: 'Errore nell\'eliminazione del docente' }), { status: 500 });
   }
-
-  // DELETE instructor
-  if (request.method === 'DELETE') {
-    try {
-      const db = env.DB as D1Database;
-
-      await db
-        .prepare('DELETE FROM instructors WHERE id = ?')
-        .bind(id)
-        .run();
-
-      return json({ success: true });
-    } catch (error) {
-      console.error('Error deleting instructor:', error);
-      return json({ error: 'Errore nell\'eliminazione del docente' }, { status: 500 });
-    }
-  }
-
-  return json({ error: 'Metodo non supportato' }, { status: 405 });
 };
