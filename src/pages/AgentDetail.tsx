@@ -47,6 +47,7 @@ export default function AgentDetail() {
   
   const [agent, setAgent] = useState<Agent | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [courses, setCourses] = useState<AgentCourse[]>([]);
   const [stats, setStats] = useState<AgentStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +117,16 @@ export default function AgentDetail() {
       if (studentsResponse.ok) {
         const studentsData = await studentsResponse.json();
         setStudents(studentsData.students || []);
+      }
+      
+      // Fetch agent's companies
+      const companiesResponse = await fetch(`/api/agents/${id}/companies`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (companiesResponse.ok) {
+        const companiesData = await companiesResponse.json();
+        setCompanies(companiesData.companies || []);
       }
       
       // Fetch agent's courses
@@ -556,6 +567,48 @@ export default function AgentDetail() {
                       <TableCell>
                         <Badge variant={course.status === 'completed' ? 'success' : 'info'}>
                           {course.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Aziende Portate */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Aziende Portate ({companies.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {companies.length === 0 ? (
+              <EmptyState
+                title="Nessuna azienda"
+                description="Le aziende appariranno qui quando ne aggiungerai dalla pagina agente"
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>P.IVA</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Telefono</TableHead>
+                    <TableHead>Categoria Rischio</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {companies.map((company) => (
+                    <TableRow key={company.id}>
+                      <TableCell className="font-medium">{company.name}</TableCell>
+                      <TableCell>{company.vatNumber || '-'}</TableCell>
+                      <TableCell>{company.email || '-'}</TableCell>
+                      <TableCell>{company.phone || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant={company.riskCategory === 'high' ? 'destructive' : company.riskCategory === 'medium' ? 'warning' : 'success'}>
+                          {company.riskCategory}
                         </Badge>
                       </TableCell>
                     </TableRow>

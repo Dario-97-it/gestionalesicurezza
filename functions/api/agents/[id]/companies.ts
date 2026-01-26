@@ -28,22 +28,22 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const db = drizzle(env.DB, { schema });
 
-    // Fetch students associated with this agent
-    const students = await db.select()
-      .from(schema.students)
+    // Fetch companies associated with this agent
+    const companies = await db.select()
+      .from(schema.companies)
       .where(
-        eq(schema.students.agentId, agentId)
+        eq(schema.companies.agentId, agentId)
       );
 
     return new Response(JSON.stringify({ 
-      students: students || []
+      companies: companies || []
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    console.error('Error fetching agent students:', error);
-    return new Response(JSON.stringify({ error: 'Errore nel caricamento degli studenti' }), {
+    console.error('Error fetching agent companies:', error);
+    return new Response(JSON.stringify({ error: 'Errore nel caricamento delle aziende' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -56,10 +56,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const body = await request.json() as any;
-    const { studentId } = body;
+    const { companyId } = body;
 
-    if (!studentId) {
-      return new Response(JSON.stringify({ error: 'ID studente obbligatorio' }), { 
+    if (!companyId) {
+      return new Response(JSON.stringify({ error: 'ID azienda obbligatorio' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -67,18 +67,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const db = drizzle(env.DB, { schema });
 
-    // Update student to link to agent
-    await db.update(schema.students)
+    // Update company to link to agent
+    await db.update(schema.companies)
       .set({ agentId })
-      .where(eq(schema.students.id, studentId));
+      .where(eq(schema.companies.id, companyId));
 
     return new Response(JSON.stringify({ success: true }), { 
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error: any) {
-    console.error('Error adding student to agent:', error);
-    return new Response(JSON.stringify({ error: 'Errore nell\'aggiunta dello studente', details: error.message }), { 
+    console.error('Error adding company to agent:', error);
+    return new Response(JSON.stringify({ error: 'Errore nell\'aggiunta dell\'azienda', details: error.message }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -91,10 +91,10 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
   try {
     const body = await request.json() as any;
-    const { studentId } = body;
+    const { companyId } = body;
 
-    if (!studentId) {
-      return new Response(JSON.stringify({ error: 'ID studente obbligatorio' }), { 
+    if (!companyId) {
+      return new Response(JSON.stringify({ error: 'ID azienda obbligatorio' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -102,18 +102,18 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
     const db = drizzle(env.DB, { schema });
 
-    // Remove agent link from student
-    await db.update(schema.students)
+    // Remove agent link from company
+    await db.update(schema.companies)
       .set({ agentId: null })
-      .where(eq(schema.students.id, studentId));
+      .where(eq(schema.companies.id, companyId));
 
     return new Response(JSON.stringify({ success: true }), { 
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error: any) {
-    console.error('Error removing student from agent:', error);
-    return new Response(JSON.stringify({ error: 'Errore nella rimozione dello studente', details: error.message }), { 
+    console.error('Error removing company from agent:', error);
+    return new Response(JSON.stringify({ error: 'Errore nella rimozione dell\'azienda', details: error.message }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
