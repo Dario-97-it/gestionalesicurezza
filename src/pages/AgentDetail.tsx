@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
@@ -54,6 +54,7 @@ export default function AgentDetail() {
   
   // Modal states
   const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -68,8 +69,26 @@ export default function AgentDetail() {
   const [studentFormData, setStudentFormData] = useState({
     firstName: '',
     lastName: '',
+    fiscalCode: '',
     email: '',
     phone: '',
+    birthDate: '',
+    birthPlace: '',
+    jobTitle: '',
+    jobRole: 'altro',
+  });
+
+  const [companyFormData, setCompanyFormData] = useState({
+    name: '',
+    vatNumber: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    cap: '',
+    contactPerson: '',
+    atecoCode: '',
+    riskCategory: 'low',
   });
 
   const fetchAgentData = useCallback(async () => {
@@ -181,29 +200,99 @@ export default function AgentDetail() {
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!studentFormData.fiscalCode) {
+      toast.error('Codice Fiscale è obbligatorio');
+      return;
+    }
+
     setIsSaving(true);
     
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/agents/${id}/students`, {
+      const response = await fetch('/api/students', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(studentFormData)
+        body: JSON.stringify({
+          ...studentFormData,
+          agentId: parseInt(id || '0')
+        })
       });
       
       if (response.ok) {
         await fetchAgentData();
         setIsAddStudentModalOpen(false);
-        setStudentFormData({ firstName: '', lastName: '', email: '', phone: '' });
+        setStudentFormData({
+          firstName: '',
+          lastName: '',
+          fiscalCode: '',
+          email: '',
+          phone: '',
+          birthDate: '',
+          birthPlace: '',
+          jobTitle: '',
+          jobRole: 'altro',
+        });
         toast.success('Studente aggiunto con successo');
       } else {
-        throw new Error('Errore nell\'aggiunta');
+        const error = await response.json();
+        throw new Error(error.error || 'Errore nell\'aggiunta');
       }
-    } catch (err) {
-      toast.error('Errore nell\'aggiunta dello studente');
+    } catch (err: any) {
+      toast.error(err.message || 'Errore nell\'aggiunta dello studente');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!companyFormData.vatNumber) {
+      toast.error('P.IVA è obbligatoria');
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('/api/companies', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...companyFormData,
+          agentId: parseInt(id || '0')
+        })
+      });
+      
+      if (response.ok) {
+        setIsAddCompanyModalOpen(false);
+        setCompanyFormData({
+          name: '',
+          vatNumber: '',
+          email: '',
+          phone: '',
+          address: '',
+          city: '',
+          cap: '',
+          contactPerson: '',
+          atecoCode: '',
+          riskCategory: 'low',
+        });
+        toast.success('Azienda aggiunta con successo');
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Errore nell\'aggiunta');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Errore nell\'aggiunta dell\'azienda');
     } finally {
       setIsSaving(false);
     }
@@ -214,7 +303,7 @@ export default function AgentDetail() {
     
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/agents/${id}/students/${studentId}`, {
+      const response = await fetch(`/api/students/${studentId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -382,10 +471,16 @@ export default function AgentDetail() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Studenti Portati ({students.length})</CardTitle>
-            <Button onClick={() => setIsAddStudentModalOpen(true)} className="flex items-center gap-2">
-              <PlusIcon className="w-4 h-4" />
-              Aggiungi Studente
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => setIsAddStudentModalOpen(true)} className="flex items-center gap-2 bg-green-600 hover:bg-green-700">
+                <PlusIcon className="w-4 h-4" />
+                Aggiungi Studente
+              </Button>
+              <Button onClick={() => setIsAddCompanyModalOpen(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+                <PlusIcon className="w-4 h-4" />
+                Aggiungi Azienda
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {students.length === 0 ? (
@@ -528,7 +623,7 @@ export default function AgentDetail() {
         isOpen={isAddStudentModalOpen}
         onClose={() => setIsAddStudentModalOpen(false)}
         title="Aggiungi Studente"
-        size="md"
+        size="lg"
       >
         <form onSubmit={handleAddStudent} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -550,22 +645,177 @@ export default function AgentDetail() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale *</label>
             <Input
-              type="email"
-              value={studentFormData.email}
-              onChange={(e) => setStudentFormData({ ...studentFormData, email: e.target.value })}
+              required
+              value={studentFormData.fiscalCode}
+              onChange={(e) => setStudentFormData({ ...studentFormData, fiscalCode: e.target.value.toUpperCase() })}
+              placeholder="XXXXXX00X00X000X"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-            <Input
-              value={studentFormData.phone}
-              onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <Input
+                type="email"
+                value={studentFormData.email}
+                onChange={(e) => setStudentFormData({ ...studentFormData, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+              <Input
+                value={studentFormData.phone}
+                onChange={(e) => setStudentFormData({ ...studentFormData, phone: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data di Nascita</label>
+              <Input
+                type="date"
+                value={studentFormData.birthDate}
+                onChange={(e) => setStudentFormData({ ...studentFormData, birthDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Luogo di Nascita</label>
+              <Input
+                value={studentFormData.birthPlace}
+                onChange={(e) => setStudentFormData({ ...studentFormData, birthPlace: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mansione</label>
+              <Input
+                value={studentFormData.jobTitle}
+                onChange={(e) => setStudentFormData({ ...studentFormData, jobTitle: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ruolo</label>
+              <select
+                value={studentFormData.jobRole}
+                onChange={(e) => setStudentFormData({ ...studentFormData, jobRole: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="operaio">Operaio</option>
+                <option value="impiegato">Impiegato</option>
+                <option value="dirigente">Dirigente</option>
+                <option value="preposto">Preposto</option>
+                <option value="altro">Altro</option>
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsAddStudentModalOpen(false)}>
+              Annulla
+            </Button>
+            <Button type="submit" isLoading={isSaving}>
+              Aggiungi
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Aggiungi Azienda */}
+      <Modal
+        isOpen={isAddCompanyModalOpen}
+        onClose={() => setIsAddCompanyModalOpen(false)}
+        title="Aggiungi Azienda"
+        size="lg"
+      >
+        <form onSubmit={handleAddCompany} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome Azienda *</label>
+            <Input
+              required
+              value={companyFormData.name}
+              onChange={(e) => setCompanyFormData({ ...companyFormData, name: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">P.IVA *</label>
+            <Input
+              required
+              value={companyFormData.vatNumber}
+              onChange={(e) => setCompanyFormData({ ...companyFormData, vatNumber: e.target.value })}
+              placeholder="00000000000"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <Input
+                type="email"
+                value={companyFormData.email}
+                onChange={(e) => setCompanyFormData({ ...companyFormData, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+              <Input
+                value={companyFormData.phone}
+                onChange={(e) => setCompanyFormData({ ...companyFormData, phone: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+            <Input
+              value={companyFormData.address}
+              onChange={(e) => setCompanyFormData({ ...companyFormData, address: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Città</label>
+              <Input
+                value={companyFormData.city}
+                onChange={(e) => setCompanyFormData({ ...companyFormData, city: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">CAP</label>
+              <Input
+                value={companyFormData.cap}
+                onChange={(e) => setCompanyFormData({ ...companyFormData, cap: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Codice ATECO</label>
+              <Input
+                value={companyFormData.atecoCode}
+                onChange={(e) => setCompanyFormData({ ...companyFormData, atecoCode: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Persona di Contatto</label>
+              <Input
+                value={companyFormData.contactPerson}
+                onChange={(e) => setCompanyFormData({ ...companyFormData, contactPerson: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria Rischio</label>
+              <select
+                value={companyFormData.riskCategory}
+                onChange={(e) => setCompanyFormData({ ...companyFormData, riskCategory: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="low">Basso</option>
+                <option value="medium">Medio</option>
+                <option value="high">Alto</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="secondary" onClick={() => setIsAddCompanyModalOpen(false)}>
               Annulla
             </Button>
             <Button type="submit" isLoading={isSaving}>

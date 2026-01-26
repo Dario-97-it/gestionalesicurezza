@@ -106,11 +106,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const body = await request.json() as any;
-    const { name, vatNumber, email, phone, address, contactPerson } = body;
+    const { name, vatNumber, email, phone, address, city, cap, contactPerson, atecoCode, agentId, riskCategory } = body;
 
     // Validazione
     if (!name) {
       return new Response(JSON.stringify({ error: 'Ragione sociale obbligatoria' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!vatNumber) {
+      return new Response(JSON.stringify({ error: 'P.IVA obbligatoria' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -138,6 +145,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Verifica che l'agente appartenga al cliente
+    if (agentId) {
+      const agent = await db.select()
+        .from(schema.agents)
+        .where(
+          and(
+            eq(schema.agents.id, agentId),
+            eq(schema.agents.clientId, auth.clientId)
+          )
+        )
+        .limit(1);
+
+      if (agent.length === 0) {
+        return new Response(JSON.stringify({ error: 'Agente non trovato' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Crea azienda
     const now = new Date().toISOString();
     const result = await db.insert(schema.companies).values({
@@ -147,7 +174,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       email: email || null,
       phone: phone || null,
       address: address || null,
+      city: city || null,
+      cap: cap || null,
       contactPerson: contactPerson || null,
+      atecoCode: atecoCode || null,
+      agentId: agentId || null,
+      riskCategory: riskCategory || 'low',
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.companies.id });

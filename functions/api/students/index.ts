@@ -107,11 +107,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const body = await request.json() as any;
-    const { firstName, lastName, fiscalCode, email, phone, birthDate, birthPlace, address, companyId } = body;
+    const { firstName, lastName, fiscalCode, email, phone, birthDate, birthPlace, address, companyId, agentId, jobTitle, jobRole, riskLevel, atecoCode } = body;
 
     // Validazione
     if (!firstName || !lastName) {
       return new Response(JSON.stringify({ error: 'Nome e cognome obbligatori' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!fiscalCode) {
+      return new Response(JSON.stringify({ error: 'Codice fiscale obbligatorio' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -162,6 +169,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Verifica che l'agente appartenga al cliente
+    if (agentId) {
+      const agent = await db.select()
+        .from(schema.agents)
+        .where(
+          and(
+            eq(schema.agents.id, agentId),
+            eq(schema.agents.clientId, auth.clientId)
+          )
+        )
+        .limit(1);
+
+      if (agent.length === 0) {
+        return new Response(JSON.stringify({ error: 'Agente non trovato' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Crea studente
     const now = new Date().toISOString();
     const result = await db.insert(schema.students).values({
@@ -175,6 +202,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       birthPlace: birthPlace || null,
       address: address || null,
       companyId: companyId || null,
+      agentId: agentId || null,
+      jobTitle: jobTitle || null,
+      jobRole: jobRole || 'altro',
+      riskLevel: riskLevel || 'low',
+      atecoCode: atecoCode || null,
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.students.id });
