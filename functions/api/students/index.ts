@@ -117,13 +117,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    if (!fiscalCode) {
-      return new Response(JSON.stringify({ error: 'Codice fiscale obbligatorio' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
     const db = drizzle(env.DB, { schema });
 
     // Verifica codice fiscale unico per questo cliente
