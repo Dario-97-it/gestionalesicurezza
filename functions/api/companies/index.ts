@@ -106,18 +106,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   try {
     const body = await request.json() as any;
-    const { name, vatNumber, email, phone, address, city, cap, contactPerson, atecoCode, agentId, riskCategory } = body;
+    const { name, vatNumber, email, phone, address, contactPerson, agentId } = body;
 
     // Validazione
     if (!name) {
       return new Response(JSON.stringify({ error: 'Ragione sociale obbligatoria' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!vatNumber) {
-      return new Response(JSON.stringify({ error: 'P.IVA obbligatoria' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -174,12 +167,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       email: email || null,
       phone: phone || null,
       address: address || null,
-      city: city || null,
-      cap: cap || null,
       contactPerson: contactPerson || null,
-      atecoCode: atecoCode || null,
       agentId: agentId || null,
-      riskCategory: riskCategory || 'low',
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.companies.id });
