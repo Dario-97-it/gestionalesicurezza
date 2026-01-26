@@ -12,80 +12,36 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>({
-    user: null,
-    client: null,
-    isAuthenticated: false,
-    isLoading: true,
+    user: {
+      id: 1,
+      email: 'd.padalino@msn.com',
+      name: 'Dario Padalino (Admin)',
+      role: 'admin',
+    },
+    client: {
+      id: 1,
+      name: 'Security Tools',
+      plan: 'enterprise',
+      subscriptionStatus: 'active',
+    },
+    isAuthenticated: true,
+    isLoading: false,
   });
 
   const refreshAuth = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        setState({
-          user: null,
-          client: null,
-          isAuthenticated: false,
-          isLoading: false,
-        });
-        return;
-      }
-
-      const { user, client } = await authApi.me();
-      setState({
-        user,
-        client,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    } catch (error) {
-      console.error('Auth refresh failed:', error);
-      clearTokens();
-      setState({
-        user: null,
-        client: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
-    }
+    // Funzione vuota per bypassare il refresh
   }, []);
 
   useEffect(() => {
-    refreshAuth();
-  }, [refreshAuth]);
+    // Non fare nulla al mount
+  }, []);
 
   const login = async (email: string, password: string) => {
-    setState((prev) => ({ ...prev, isLoading: true }));
-    try {
-      const { user, client, accessToken, refreshToken } = await authApi.login(email, password);
-      // I token vengono già salvati in authApi.login, ma assicuriamoci
-      setTokens(accessToken, refreshToken);
-      setState({
-        user,
-        client,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    } catch (error) {
-      setState((prev) => ({ ...prev, isLoading: false }));
-      throw error;
-    }
+    // Funzione vuota per bypassare il login
   };
 
   const logout = async () => {
-    try {
-      await authApi.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      clearTokens();
-      setState({
-        user: null,
-        client: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
-    }
+    // Funzione vuota per bypassare il logout
   };
 
   return (
