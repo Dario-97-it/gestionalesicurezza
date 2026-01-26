@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { Checkbox } from '../components/ui/Checkbox';
-import { editionsApi, studentsApi, companiesApi, registrationsApi } from '../lib/api';
+import { editionsApi, studentsApi, companiesApi, registrationsApi, agentsApi } from '../lib/api';
 import type { CourseEdition, Student, Company } from '../types';
 import toast from 'react-hot-toast';
 
@@ -34,12 +34,14 @@ export default function EditionRegister() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [agents, setAgents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Modal per aggiungere studenti
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<number | ''>('');
+  const [selectedAgentFilter, setSelectedAgentFilter] = useState<number | ''>('');
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   
@@ -76,10 +78,11 @@ export default function EditionRegister() {
         calculateStats(regData.registrations || []);
       }
       
-      // Fetch companies and students for the add modal
-      const [companiesRes, studentsRes] = await Promise.all([
+      // Fetch companies, agents and students for the add modal
+      const [companiesRes, studentsRes, agentsRes] = await Promise.all([
         companiesApi.getAll({ pageSize: 500 }),
-        studentsApi.getAll(1, 500)
+        studentsApi.getAll(1, 500),
+        agentsApi.getAll(1, 500)
       ]);
       // Filter companies based on edition type
       let filteredCompanies = companiesRes.data || [];
@@ -89,6 +92,7 @@ export default function EditionRegister() {
       
       setCompanies(filteredCompanies);
       setStudents(studentsRes.data || []);
+      setAgents(agentsRes.data || []);
       
     } catch (err: any) {
       console.error('Error fetching edition data:', err);
@@ -102,14 +106,20 @@ export default function EditionRegister() {
     fetchEditionData();
   }, [fetchEditionData]);
 
-  // Filter students by company
+  // Filter students by company or agent
   useEffect(() => {
-    if (selectedCompanyFilter === '') {
-      setFilteredStudents(students);
-    } else {
-      setFilteredStudents(students.filter(s => s.companyId === selectedCompanyFilter));
+    let filtered = students;
+    
+    if (selectedCompanyFilter !== '') {
+      filtered = filtered.filter(s => s.companyId === selectedCompanyFilter);
     }
-  }, [selectedCompanyFilter, students]);
+    
+    if (selectedAgentFilter !== '') {
+      filtered = filtered.filter(s => s.agentId === selectedAgentFilter);
+    }
+    
+    setFilteredStudents(filtered);
+  }, [selectedCompanyFilter, selectedAgentFilter, students]);
 
   const calculateStats = (regs: Registration[]) => {
     const byCompany: Record<number, { name: string; count: number; passed: number; failed: number }> = {};
@@ -483,18 +493,33 @@ export default function EditionRegister() {
       >
         <div className="space-y-4">
           {/* Filtro per Azienda */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Filtra per Azienda</label>
-            <select
-              value={selectedCompanyFilter}
-              onChange={(e) => setSelectedCompanyFilter(e.target.value ? parseInt(e.target.value) : '')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Tutte le aziende</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>{company.name}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filtra per Azienda</label>
+              <select
+                value={selectedCompanyFilter}
+                onChange={(e) => setSelectedCompanyFilter(e.target.value ? parseInt(e.target.value) : '')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Tutte le aziende</option>
+                {companies.map(company => (
+                  <option key={company.id} value={company.id}>{company.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filtra per Agente</label>
+              <select
+                value={selectedAgentFilter}
+                onChange={(e) => setSelectedAgentFilter(e.target.value ? parseInt(e.target.value) : '')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Tutti gli agenti</option>
+                {agents.map(agent => (
+                  <option key={agent.id} value={agent.id}>{agent.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Azioni rapide */}

@@ -5,7 +5,7 @@ import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState, Pagination } from '../components/ui/Table';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
-import { editionsApi, coursesApi, instructorsApi, companiesApi } from '../lib/api';
+import { editionsApi, coursesApi, instructorsApi, companiesApi, agentsApi } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 import type { CourseEdition, Course, Instructor, Company } from '../types';
 import toast from 'react-hot-toast';
@@ -79,6 +79,10 @@ export default function EditionsImproved() {
 
   const [selectedCompanies, setSelectedCompanies] = useState<number[]>([]);
   const [companyPrices, setCompanyPrices] = useState<Record<number, string>>({});
+  const [agents, setAgents] = useState<any[]>([]);
+  const [selectedAgents, setSelectedAgents] = useState<number[]>([]);
+  const [agentPrices, setAgentPrices] = useState<Record<number, string>>({});
+  const [showAgentSelection, setShowAgentSelection] = useState(false);
 
   const statusOptions = [
     { value: 'scheduled', label: 'Programmata', color: 'bg-blue-100 text-blue-700', icon: '📅' },
@@ -131,14 +135,16 @@ export default function EditionsImproved() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [coursesRes, instructorsRes, companiesRes] = await Promise.all([
+        const [coursesRes, instructorsRes, companiesRes, agentsRes] = await Promise.all([
           coursesApi.getAll(1, 100),
           instructorsApi.getAll(1, 100),
           companiesApi.getAll(1, 100),
+          agentsApi.getAll(1, 100),
         ]);
         setCourses(coursesRes.data || []);
         setInstructors(instructorsRes.data || []);
         setCompanies(companiesRes.data || []);
+        setAgents(agentsRes.data || []);
       } catch (err) {
         console.error('Error loading reference data:', err);
       }
@@ -643,6 +649,47 @@ export default function EditionsImproved() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {formData.editionType === 'multi' && (
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-3">Agenti Partecipanti</label>
+              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                {agents.length === 0 ? (
+                  <p className="text-sm text-gray-500">Nessun agente disponibile</p>
+                ) : (
+                  agents.map(agent => (
+                    <div key={agent.id} className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`agent-${agent.id}`}
+                        checked={selectedAgents.includes(agent.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedAgents([...selectedAgents, agent.id]);
+                          } else {
+                            setSelectedAgents(selectedAgents.filter(id => id !== agent.id));
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <label htmlFor={`agent-${agent.id}`} className="flex-1 cursor-pointer">
+                        <span className="font-medium">{agent.name}</span>
+                      </label>
+                      {selectedAgents.includes(agent.id) && (
+                        <input
+                          type="number"
+                          placeholder="Prezzo €"
+                          value={agentPrices[agent.id] || ''}
+                          onChange={(e) => setAgentPrices({ ...agentPrices, [agent.id]: e.target.value })}
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                        />
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}

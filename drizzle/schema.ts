@@ -307,3 +307,17 @@ export const editionCompanyPricesRelations = relations(editionCompanyPrices, ({ 
     references: [companies.id],
   }),
 }));
+
+
+/**
+ * Edition Agent Prices table - Prezzi per agente nelle edizioni multi-aziendali
+ */
+export const editionAgentPrices = sqliteTable("edition_agent_prices", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  courseEditionId: integer("course_edition_id").notNull().references(() => courseEditions.id, { onDelete: "cascade" }),
+  agentId: integer("agent_id").notNull().references(() => agents.id, { onDelete: "cascade" }),
+  price: integer("price").notNull().default(0), // Prezzo in centesimi
+  clientId: integer("clientId").notNull(),
+  createdAt: text("createdAt").default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updatedAt").default(sql`CURRENT_TIMESTAMP`),
+});
