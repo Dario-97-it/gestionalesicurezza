@@ -580,6 +580,75 @@ export default function EditionsImproved() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Edizione *</label>
+              <select
+                required
+                value={formData.editionType}
+                onChange={(e) => setFormData({ ...formData, editionType: e.target.value as 'public' | 'private' | 'multi' })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="public">🌍 Pubblica</option>
+                <option value="private">🔒 Privata (Azienda Singola)</option>
+                <option value="multi">🏢 Multi-azienda</option>
+              </select>
+            </div>
+            {formData.editionType === 'private' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Azienda *</label>
+                <select
+                  required
+                  value={formData.dedicatedCompanyId}
+                  onChange={(e) => setFormData({ ...formData, dedicatedCompanyId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Seleziona azienda</option>
+                  {companies.map(company => (
+                    <option key={company.id} value={company.id}>{company.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {formData.editionType === 'multi' && (
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-3">Aziende Partecipanti *</label>
+              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50">
+                {companies.map(company => (
+                  <div key={company.id} className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id={`company-${company.id}`}
+                      checked={selectedCompanies.includes(company.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCompanies([...selectedCompanies, company.id]);
+                        } else {
+                          setSelectedCompanies(selectedCompanies.filter(id => id !== company.id));
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <label htmlFor={`company-${company.id}`} className="flex-1 cursor-pointer">
+                      <span className="font-medium">{company.name}</span>
+                    </label>
+                    {selectedCompanies.includes(company.id) && (
+                      <input
+                        type="number"
+                        placeholder="Prezzo €"
+                        value={companyPrices[company.id] || ''}
+                        onChange={(e) => setCompanyPrices({ ...companyPrices, [company.id]: e.target.value })}
+                        className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
               <Input
                 value={formData.location}

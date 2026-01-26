@@ -81,7 +81,13 @@ export default function EditionRegister() {
         companiesApi.getAll({ pageSize: 500 }),
         studentsApi.getAll(1, 500)
       ]);
-      setCompanies(companiesRes.data || []);
+      // Filter companies based on edition type
+      let filteredCompanies = companiesRes.data || [];
+      if (editionData.editionType === 'private' && editionData.dedicatedCompanyId) {
+        filteredCompanies = filteredCompanies.filter((c: any) => c.id === editionData.dedicatedCompanyId);
+      }
+      
+      setCompanies(filteredCompanies);
       setStudents(studentsRes.data || []);
       
     } catch (err: any) {
