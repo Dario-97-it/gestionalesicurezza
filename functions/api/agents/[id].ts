@@ -13,24 +13,11 @@ interface Env {
   DB: D1Database;
 }
 
-interface AuthContext {
-  clientId: number;
-  userId: number;
-  email: string;
-  role: string;
-}
+
 
 // GET - Dettaglio agente con studenti e aziende
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, params } = context;
-  const auth = context.data.auth as AuthContext;
-
-  if (!auth) {
-    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
 
   const agentId = parseInt(params.id as string);
   if (isNaN(agentId)) {
@@ -46,10 +33,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     // Get agent
     const agents = await db.select()
       .from(schema.agents)
-      .where(and(
-        eq(schema.agents.id, agentId),
-        eq(schema.agents.clientId, auth.clientId)
-      ));
+      .where(eq(schema.agents.id, agentId));
 
     if (agents.length === 0) {
       return new Response(JSON.stringify({ success: false, error: 'Agente non trovato' }), {
@@ -72,10 +56,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       createdAt: schema.students.createdAt,
     })
       .from(schema.students)
-      .where(and(
-        eq(schema.students.agentId, agentId),
-        eq(schema.students.clientId, auth.clientId)
-      ));
+      .where(eq(schema.students.agentId, agentId));
 
     // Get companies linked to this agent
     const companies = await db.select({
@@ -88,10 +69,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       createdAt: schema.companies.createdAt,
     })
       .from(schema.companies)
-      .where(and(
-        eq(schema.companies.agentId, agentId),
-        eq(schema.companies.clientId, auth.clientId)
-      ));
+      .where(eq(schema.companies.agentId, agentId));
 
     // Enrich students with company name
     const studentsWithCompany = await Promise.all(students.map(async (student) => {
@@ -134,15 +112,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 // PUT - Modifica agente
 export const onRequestPut: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
-  const auth = context.data.auth as AuthContext;
   const agentId = parseInt(context.params.id as string);
-
-  if (!auth) {
-    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
 
   try {
     const body = await request.json() as any;
@@ -166,12 +136,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         notes: notes || null,
         updatedAt: new Date().toISOString(),
       })
-      .where(
-        and(
-          eq(schema.agents.id, agentId),
-          eq(schema.agents.clientId, auth.clientId)
-        )
-      )
+      .where(eq(schema.agents.id, agentId))
       .returning();
 
     if (result.length === 0) {
@@ -201,28 +166,15 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 // DELETE - Elimina agente
 export const onRequestDelete: PagesFunction<Env> = async (context) => {
   const { env } = context;
-  const auth = context.data.auth as AuthContext;
   const agentId = parseInt(context.params.id as string);
-
-  if (!auth) {
-    return new Response(JSON.stringify({ success: false, error: 'Non autorizzato' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
 
   try {
     const db = drizzle(env.DB, { schema });
 
-    // Verifica che l'agente esista e appartenga al cliente
+    // Verifica che l'agente esista
     const existing = await db.select()
       .from(schema.agents)
-      .where(
-        and(
-          eq(schema.agents.id, agentId),
-          eq(schema.agents.clientId, auth.clientId)
-        )
-      )
+      .where(eq(schema.agents.id, agentId))
       .limit(1);
 
     if (existing.length === 0) {
@@ -233,12 +185,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     }
 
     await db.delete(schema.agents)
-      .where(
-        and(
-          eq(schema.agents.id, agentId),
-          eq(schema.agents.clientId, auth.clientId)
-        )
-      );
+      .where(eq(schema.agents.id, agentId));
 
     return new Response(JSON.stringify({
       success: true,
