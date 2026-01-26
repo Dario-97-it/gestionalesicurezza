@@ -13,7 +13,7 @@ interface Env {
   DB: D1Database;
   SESSIONS: KVNamespace;
   SUBSCRIPTIONS: KVNamespace;
-  JWT_SECRET?: string;
+  JWT_SECRET: string;
 }
 
 interface LoginRequest {
@@ -156,8 +156,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // Genera JWT access token
-    const jwtSecret = env.JWT_SECRET || 'gestionalesicurezza-default-secret-key-2026';
-    const secret = new TextEncoder().encode(jwtSecret);
+    if (!env.JWT_SECRET) {
+      return new Response(JSON.stringify({ error: 'JWT_SECRET non configurato' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const secret = new TextEncoder().encode(env.JWT_SECRET);
     const accessToken = await new SignJWT({
       clientId: clientData.id,
       userId: authUser.id,
