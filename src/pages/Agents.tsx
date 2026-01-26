@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -51,6 +52,7 @@ interface AgentDetail extends Agent {
 }
 
 export default function Agents() {
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -555,7 +557,7 @@ export default function Agents() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => loadAgentDetail(agent.id)}
+                          onClick={() => navigate(`/agents/${agent.id}`)}
                           className="text-gray-600 hover:bg-gray-100"
                           title="Visualizza dettaglio"
                         >

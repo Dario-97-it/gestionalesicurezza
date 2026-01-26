@@ -13,7 +13,8 @@ const StudentDetail = lazy(() => import('./pages/StudentDetail'));
 const Services = lazy(() => import('./pages/Services'));
 const Instructors = lazy(() => import('./pages/Instructors'));
 const InstructorDetail = lazy(() => import('./pages/InstructorDetail'));
-const Agents = lazy(() => import('./pages/Agents')); 
+const Agents = lazy(() => import('./pages/Agents'));
+const AgentDetail = lazy(() => import('./pages/AgentDetail'));
 const Editions = lazy(() => import('./pages/Editions'));
 const EditionRegister = lazy(() => import('./pages/EditionRegister'));
 const Attendances = lazy(() => import('./pages/Attendances'));
@@ -77,6 +78,7 @@ function AppRoutes() {
         
         {/* Agenti (Pagina 6) */}
         <Route path="/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
+        <Route path="/agents/:id" element={<ProtectedRoute><AgentDetail /></ProtectedRoute>} />
         
         {/* Edizioni (Pagina 7) */}
         <Route path="/editions" element={<ProtectedRoute><Editions /></ProtectedRoute>} />
