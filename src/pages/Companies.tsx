@@ -8,11 +8,12 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptySta
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { companiesApi } from '../lib/api';
 import { validaPIVA, normalizzaPIVA, formattaPIVA } from '../lib/partitaIva';
-import type { Company } from '../types';
+import type { Company, Agent } from '../types';
 
 export default function Companies() {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 0 });
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +32,7 @@ export default function Companies() {
     phone: '',
     address: '',
     contactPerson: '',
+    agentId: '',
     riskCategory: 'low' as 'low' | 'medium' | 'high',
   });
 
@@ -43,6 +45,21 @@ export default function Companies() {
   } | null>(null);
   const [duplicateCompany, setDuplicateCompany] = useState<{ id: number; name: string } | null>(null);
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+
+  // Fetch agents
+  const fetchAgents = useCallback(async () => {
+    try {
+      const response = await fetch('/api/agents', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAgents(data.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching agents:', err);
+    }
+  }, []);
 
   // Fetch companies
   const fetchCompanies = useCallback(async (page = 1, searchTerm = '') => {
@@ -66,9 +83,10 @@ export default function Companies() {
     }
   }, [pagination.pageSize]);
 
-  // Load companies on mount
+  // Load companies and agents on mount
   useEffect(() => {
     fetchCompanies();
+    fetchAgents();
   }, []);
 
   // Debounced search
@@ -141,6 +159,7 @@ export default function Companies() {
       phone: '',
       address: '',
       contactPerson: '',
+      agentId: '',
       riskCategory: 'low',
     });
     setPivaValidation(null);
@@ -162,6 +181,7 @@ export default function Companies() {
       phone: company.phone || '',
       address: company.address || '',
       contactPerson: company.contactPerson || '',
+      agentId: company.agentId ? String(company.agentId) : '',
       riskCategory: (company as any).riskCategory || 'low',
     });
     setPivaValidation(null);
@@ -195,6 +215,7 @@ export default function Companies() {
       const dataToSave = {
         ...formData,
         vatNumber: formData.vatNumber ? normalizzaPIVA(formData.vatNumber) : '',
+        agentId: formData.agentId ? parseInt(formData.agentId) : null,
       };
 
       if (selectedCompany) {
@@ -499,6 +520,22 @@ export default function Companies() {
             value={formData.contactPerson}
             onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
           />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Agente Commerciale</label>
+            <select
+              value={formData.agentId}
+              onChange={(e) => setFormData({ ...formData, agentId: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+            >
+              <option value="">-- Nessun agente --</option>
+              {agents.map((agent) => (
+                <option key={agent.id} value={String(agent.id)}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <label className="block text-sm font-medium text-blue-900 mb-2">Categoria Rischio (D.Lgs. 81/08)</label>

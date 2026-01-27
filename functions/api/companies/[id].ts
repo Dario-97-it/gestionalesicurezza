@@ -136,6 +136,26 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Verifica che l'agente appartenga al cliente se fornito
+    if (body.agentId && body.agentId !== null) {
+      const agent = await db.select()
+        .from(schema.agents)
+        .where(
+          and(
+            eq(schema.agents.id, body.agentId),
+            eq(schema.agents.clientId, auth.clientId)
+          )
+        )
+        .limit(1);
+
+      if (agent.length === 0) {
+        return new Response(JSON.stringify({ error: 'Agente non trovato' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Aggiorna
     await db.update(schema.companies)
       .set({
@@ -145,6 +165,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         phone: body.phone ?? existing[0].phone,
         address: body.address ?? existing[0].address,
         contactPerson: body.contactPerson ?? existing[0].contactPerson,
+        agentId: body.agentId !== undefined ? (body.agentId || null) : existing[0].agentId,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.companies.id, companyId));
