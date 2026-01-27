@@ -286,10 +286,11 @@ export const coursesApi = {
 
 // Course Editions API
 export const editionsApi = {
-  getAll: async (page = 1, pageSize = 20, status?: string, courseId?: number): Promise<PaginatedResponse<CourseEdition>> => {
+  getAll: async (page = 1, pageSize = 20, status?: string, courseId?: number, sortBy?: string): Promise<PaginatedResponse<CourseEdition>> => {
     const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     if (status) params.append('status', status);
     if (courseId) params.append('courseId', String(courseId));
+    if (sortBy) params.append('sortBy', sortBy);
     const response = await api.get(`/editions?${params}`);
     return response.data;
   },

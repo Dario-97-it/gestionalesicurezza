@@ -44,6 +44,7 @@ export default function EditionsImproved() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [courseFilter, setCourseFilter] = useState<number | undefined>();
   const [typeFilter, setTypeFilter] = useState<string>('');
+  const [sortBy, setSortBy] = useState<string>('startDate-desc');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -101,7 +102,7 @@ export default function EditionsImproved() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await editionsApi.getAll(page, pagination.pageSize, statusFilter || undefined, courseFilter);
+      const response = await editionsApi.getAll(page, pagination.pageSize, statusFilter || undefined, courseFilter, sortBy);
       let filteredData = response.data || [];
       if (typeFilter) {
         filteredData = filteredData.filter((e: any) => e.editionType === typeFilter);
@@ -126,7 +127,7 @@ export default function EditionsImproved() {
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.pageSize, statusFilter, courseFilter, typeFilter, searchTerm]);
+  }, [pagination.pageSize, statusFilter, courseFilter, typeFilter, searchTerm, sortBy]);
 
   useEffect(() => {
     fetchEditions();
@@ -330,7 +331,18 @@ export default function EditionsImproved() {
               </div>
 
               {/* Filtri */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value="startDate-desc">📅 Data inizio (recente)</option>
+                  <option value="startDate-asc">📅 Data inizio (meno recente)</option>
+                  <option value="createdAt-desc">🕐 Data creazione (recente)</option>
+                  <option value="createdAt-asc">🕐 Data creazione (meno recente)</option>
+                </select>
+
                 <select
                   value={courseFilter || ''}
                   onChange={(e) => setCourseFilter(e.target.value ? Number(e.target.value) : undefined)}
@@ -369,7 +381,8 @@ export default function EditionsImproved() {
                     setSearchTerm('');
                     setCourseFilter(undefined); 
                     setStatusFilter(''); 
-                    setTypeFilter(''); 
+                    setTypeFilter('');
+                    setSortBy('startDate-desc');
                   }}
                   className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >

@@ -36,6 +36,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const status = url.searchParams.get('status');
   const startDateFrom = url.searchParams.get('startDateFrom');
   const startDateTo = url.searchParams.get('startDateTo');
+  const sortBy = url.searchParams.get('sortBy') || 'startDate-desc';
   const page = parseInt(url.searchParams.get('page') || '1');
   const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
   const offset = (page - 1) * pageSize;
@@ -88,7 +89,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     .from(schema.courseEditions)
     .innerJoin(schema.courses, eq(schema.courseEditions.courseId, schema.courses.id))
     .where(and(...conditions))
-    .orderBy(desc(schema.courseEditions.startDate))
+    .orderBy(sortBy === 'startDate-asc' ? schema.courseEditions.startDate : 
+             sortBy === 'createdAt-desc' ? desc(schema.courseEditions.createdAt) :
+             sortBy === 'createdAt-asc' ? schema.courseEditions.createdAt :
+             desc(schema.courseEditions.startDate))
     .limit(pageSize)
     .offset(offset);
 
