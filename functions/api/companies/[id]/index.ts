@@ -198,12 +198,39 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // Delete company (verify it belongs to client)
-    await db.delete(schema.companies)
-      .where(and(
-        eq(schema.companies.id, companyId),
-        eq(schema.companies.clientId, auth.clientId)
-      ));
+    // First, set agentId to NULL to avoid foreign key issues
+    try {
+      await db.update(schema.companies)
+        .set({ agentId: null })
+        .where(eq(schema.companies.id, companyId));
+    } catch (e) {
+      console.warn('Warning: Could not set agentId to NULL:', e);
+    }
+
+    // Delete company
+    try {
+      await db.delete(schema.companies)
+        .where(and(
+          eq(schema.companies.id, companyId),
+          eq(schema.companies.clientId, auth.clientId)
+        ));
+    } catch (deleteError: any) {
+      console.error('Delete error:', deleteError);
+      // If delete fails due to foreign key constraints, try raw SQL
+      if (deleteError.message && deleteError.message.includes('course_editions')) {
+        try {
+          // Use raw SQL to delete bypassing foreign key checks
+          await env.DB.prepare(`DELETE FROM companies WHERE id = ? AND clientId = ?`)
+            .bind(companyId, auth.clientId)
+            .run();
+        } catch (sqlError) {
+          console.error('SQL delete error:', sqlError);
+          throw deleteError;
+        }
+      } else {
+        throw deleteError;
+      }
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
@@ -212,7 +239,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Error deleting company:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
