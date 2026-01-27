@@ -96,6 +96,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
   try {
     const body = await request.json() as any;
+    console.log('Update company body:', JSON.stringify(body));
     const db = drizzle(env.DB, { schema });
 
     // Verifica che l'azienda esista e appartenga al cliente
@@ -167,9 +168,13 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       updatedAt: new Date().toISOString(),
     };
 
-    // Handle agentId explicitly - if provided (even if null/undefined), update it
-    if (body.hasOwnProperty('agentId')) {
-      updateData.agentId = body.agentId || null;
+    // Handle agentId explicitly - if provided (even if null), update it
+    if ('agentId' in body) {
+      console.log('agentId found in body:', body.agentId);
+      updateData.agentId = body.agentId === null ? null : (body.agentId || null);
+      console.log('updateData.agentId set to:', updateData.agentId);
+    } else {
+      console.log('agentId NOT found in body');
     }
 
     // Aggiorna
