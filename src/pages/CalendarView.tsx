@@ -237,9 +237,9 @@ export default function CalendarView() {
               </div>
             ) : (
               <FullCalendar
+                key={viewMode}
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
                 initialView={viewMode}
-                view={viewMode}
                 locale={itLocale}
                 headerToolbar={{
                   left: 'prev,next today',
