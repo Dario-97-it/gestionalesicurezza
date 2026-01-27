@@ -349,6 +349,7 @@ export default function Companies() {
                       <TableHead>Email</TableHead>
                       <TableHead>Telefono</TableHead>
                       <TableHead>Referente</TableHead>
+                      <TableHead>Agente</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -360,6 +361,7 @@ export default function Companies() {
                         <TableCell>{company.email || '-'}</TableCell>
                         <TableCell>{company.phone || '-'}</TableCell>
                         <TableCell>{company.contactPerson || '-'}</TableCell>
+                        <TableCell>{company.agentId ? `Agente ${company.agentId}` : '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <button

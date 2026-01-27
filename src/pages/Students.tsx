@@ -421,6 +421,7 @@ export default function Students() {
                       <TableHead>Email</TableHead>
                       <TableHead>Telefono</TableHead>
                       <TableHead>Azienda</TableHead>
+                      <TableHead>Agente</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -433,6 +434,7 @@ export default function Students() {
                         <TableCell>{student.email || '-'}</TableCell>
                         <TableCell>{student.phone || '-'}</TableCell>
                         <TableCell>{getCompanyName(student.companyId)}</TableCell>
+                        <TableCell>{student.agentId ? `Agente ${student.agentId}` : '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <button
