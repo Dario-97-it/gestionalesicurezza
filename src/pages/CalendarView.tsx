@@ -239,6 +239,7 @@ export default function CalendarView() {
               <FullCalendar
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
                 initialView={viewMode}
+                view={viewMode}
                 locale={itLocale}
                 headerToolbar={{
                   left: 'prev,next today',
