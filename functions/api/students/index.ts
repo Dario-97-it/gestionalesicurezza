@@ -7,6 +7,7 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, like, or, asc, and, sql } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
+import { leftJoin } from 'drizzle-orm';
 
 interface Env {
   DB: D1Database;
@@ -59,13 +60,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       conditions.push(eq(schema.students.companyId, parseInt(companyId)));
     }
 
-    // Query studenti
-    const students = await db.select()
+    // Query studenti with agent info
+    const students = await db.select({
+      student: schema.students,
+      agent: schema.agents,
+    })
       .from(schema.students)
+      .leftJoin(schema.agents, eq(schema.students.agentId, schema.agents.id))
       .where(and(...conditions))
       .orderBy(asc(schema.students.lastName), asc(schema.students.firstName))
       .limit(pageSize)
       .offset(offset);
+    
+    // Transform to include agent info in student object
+    const studentsWithAgent = students.map(row => ({
+      ...row.student,
+      agent: row.agent ? { id: row.agent.id, name: row.agent.name } : null,
+    }));
 
     // Count totale
     const countResult = await db.select({ count: sql<number>`count(*)` })
@@ -74,7 +85,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const total = Number(countResult[0]?.count || 0);
 
     return new Response(JSON.stringify({
-      data: students,
+      data: studentsWithAgent,
       total,
       page,
       pageSize,

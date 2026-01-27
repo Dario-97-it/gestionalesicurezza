@@ -7,6 +7,7 @@
 import { drizzle } from 'drizzle-orm/d1';
 import { eq, like, or, asc, desc, and, sql, count } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
+import { leftJoin } from 'drizzle-orm';
 
 interface Env {
   DB: D1Database;
@@ -61,18 +62,28 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       .where(whereCondition);
     const total = countResult[0]?.count || 0;
 
-    // Get paginated data
-    const companies = await db.select()
+    // Get paginated data with agent info
+    const companies = await db.select({
+      company: schema.companies,
+      agent: schema.agents,
+    })
       .from(schema.companies)
+      .leftJoin(schema.agents, eq(schema.companies.agentId, schema.agents.id))
       .where(whereCondition)
       .orderBy(asc(schema.companies.name))
       .limit(pageSize)
       .offset(offset);
+    
+    // Transform to include agent info in company object
+    const companiesWithAgent = companies.map(row => ({
+      ...row.company,
+      agent: row.agent ? { id: row.agent.id, name: row.agent.name } : null,
+    }));
 
     const totalPages = Math.ceil(total / pageSize);
 
     return new Response(JSON.stringify({
-      data: companies,
+      data: companiesWithAgent,
       page,
       pageSize,
       total,

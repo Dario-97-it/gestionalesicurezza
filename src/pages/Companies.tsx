@@ -361,7 +361,7 @@ export default function Companies() {
                         <TableCell>{company.email || '-'}</TableCell>
                         <TableCell>{company.phone || '-'}</TableCell>
                         <TableCell>{company.contactPerson || '-'}</TableCell>
-                        <TableCell>{company.agentId ? `Agente ${company.agentId}` : '-'}</TableCell>
+                        <TableCell>{company.agent?.name || '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <button

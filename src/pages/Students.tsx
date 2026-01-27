@@ -434,7 +434,7 @@ export default function Students() {
                         <TableCell>{student.email || '-'}</TableCell>
                         <TableCell>{student.phone || '-'}</TableCell>
                         <TableCell>{getCompanyName(student.companyId)}</TableCell>
-                        <TableCell>{student.agentId ? `Agente ${student.agentId}` : '-'}</TableCell>
+                        <TableCell>{student.agent?.name || '-'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <button

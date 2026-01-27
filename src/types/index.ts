@@ -28,6 +28,18 @@ export interface AuthState {
   isLoading: boolean;
 }
 
+// Agent Types
+export interface Agent {
+  id: number;
+  clientId: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Company Types
 export interface Company {
   id: number;
@@ -38,6 +50,8 @@ export interface Company {
   phone?: string;
   address?: string;
   contactPerson?: string;
+  agentId?: number;
+  agent?: { id: number; name: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +70,8 @@ export interface Student {
   address?: string;
   companyId?: number;
   company?: Company;
+  agentId?: number;
+  agent?: { id: number; name: string } | null;
   createdAt: string;
   updatedAt: string;
 }
