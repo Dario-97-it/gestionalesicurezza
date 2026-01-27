@@ -44,7 +44,7 @@ export default function InstructorDetail() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const instructorData = await instructorResponse.json();
-      setInstructor(instructorData.data);
+      setInstructor(instructorData);
 
       // Fetch instructor's course sessions
       const sessionsResponse = await fetch(`/api/instructors/${id}/sessions`, {
