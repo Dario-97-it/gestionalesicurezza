@@ -1,0 +1,21 @@
+
+  const handleRemoveCompany = async (companyId: number) => {
+    if (!confirm('Sei sicuro di voler rimuovere questa azienda?')) return;
+    
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/companies/${${companyId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        await fetchAgentData();
+        toast.success('Azienda rimossa con successo');
+      } else {
+        throw new Error('Errore nella rimozione');
+      }
+    } catch (err) {
+      toast.error('Errore nella rimozione dell azienda');
+    }
+  };
