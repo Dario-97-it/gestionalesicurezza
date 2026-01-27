@@ -30,15 +30,15 @@ export const onRequestPut: PagesFunction = async (context) => {
     const body = await request.json();
     const db = env.DB as D1Database;
 
-    const { firstName, lastName, email, phone, hourlyRate, notes } = body;
+    const { firstName, lastName, email, phone, hourlyRate, notes, status } = body;
 
     await db
       .prepare(
         `UPDATE instructors 
-         SET firstName = ?, lastName = ?, email = ?, phone = ?, hourlyRate = ?, notes = ?, updatedAt = ?
+         SET firstName = ?, lastName = ?, email = ?, phone = ?, hourlyRate = ?, notes = ?, status = ?, updatedAt = ?
          WHERE id = ?`
       )
-      .bind(firstName, lastName, email, phone, hourlyRate, notes, new Date().toISOString(), id)
+      .bind(firstName, lastName, email, phone, hourlyRate, notes, status, new Date().toISOString(), id)
       .run();
 
     const updated = await db
