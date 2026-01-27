@@ -215,7 +215,7 @@ export default function Companies() {
       const dataToSave = {
         ...formData,
         vatNumber: formData.vatNumber ? normalizzaPIVA(formData.vatNumber) : '',
-        agentId: formData.agentId ? parseInt(formData.agentId) : null,
+        agentId: formData.agentId ? parseInt(formData.agentId) : undefined,
       };
 
       if (selectedCompany) {

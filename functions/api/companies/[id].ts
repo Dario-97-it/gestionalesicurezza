@@ -137,7 +137,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
 
     // Verifica che l'agente appartenga al cliente se fornito
-    if (body.agentId && body.agentId !== null) {
+    if (body.agentId) {
       const agent = await db.select()
         .from(schema.agents)
         .where(
@@ -156,18 +156,25 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Build update object
+    const updateData: any = {
+      name: body.name ?? existing[0].name,
+      vatNumber: body.vatNumber ?? existing[0].vatNumber,
+      email: body.email ?? existing[0].email,
+      phone: body.phone ?? existing[0].phone,
+      address: body.address ?? existing[0].address,
+      contactPerson: body.contactPerson ?? existing[0].contactPerson,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Handle agentId explicitly - if provided (even if null/undefined), update it
+    if (body.hasOwnProperty('agentId')) {
+      updateData.agentId = body.agentId || null;
+    }
+
     // Aggiorna
     await db.update(schema.companies)
-      .set({
-        name: body.name ?? existing[0].name,
-        vatNumber: body.vatNumber ?? existing[0].vatNumber,
-        email: body.email ?? existing[0].email,
-        phone: body.phone ?? existing[0].phone,
-        address: body.address ?? existing[0].address,
-        contactPerson: body.contactPerson ?? existing[0].contactPerson,
-        agentId: body.agentId !== undefined ? (body.agentId || null) : existing[0].agentId,
-        updatedAt: new Date().toISOString(),
-      })
+      .set(updateData)
       .where(eq(schema.companies.id, companyId));
 
     return new Response(JSON.stringify({ success: true }), {
