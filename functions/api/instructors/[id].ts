@@ -1,74 +1,212 @@
-export const onRequestGet: PagesFunction = async (context) => {
-  const { env } = context;
-  const url = new URL(context.request.url);
-  const id = url.pathname.split('/').pop();
+/**
+ * API Instructor by ID - Gestione singolo docente
+ * GET /api/instructors/:id - Ottieni docente
+ * PUT /api/instructors/:id - Aggiorna docente
+ * DELETE /api/instructors/:id - Elimina docente
+ */
+
+import { drizzle } from 'drizzle-orm/d1';
+import { eq, and } from 'drizzle-orm';
+import * as schema from '../../../drizzle/schema';
+
+interface Env {
+  DB: D1Database;
+}
+
+interface AuthContext {
+  clientId: number;
+  userId: number;
+  email: string;
+  role: string;
+}
+
+// GET - Ottieni docente
+export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { env, params } = context;
+  const auth = context.data.auth as AuthContext;
+  const instructorId = parseInt(params.id as string);
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (isNaN(instructorId)) {
+    return new Response(JSON.stringify({ error: 'ID non valido' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   try {
-    const db = env.DB as D1Database;
-    const instructor = await db
-      .prepare('SELECT * FROM instructors WHERE id = ?')
-      .bind(id)
-      .first();
+    const db = drizzle(env.DB, { schema });
 
-    if (!instructor) {
-      return new Response(JSON.stringify({ error: 'Docente non trovato' }), { status: 404 });
+    const instructors = await db.select()
+      .from(schema.instructors)
+      .where(
+        and(
+          eq(schema.instructors.id, instructorId),
+          eq(schema.instructors.clientId, auth.clientId)
+        )
+      )
+      .limit(1);
+
+    if (instructors.length === 0) {
+      return new Response(JSON.stringify({ error: 'Docente non trovato' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(JSON.stringify(instructor), { status: 200 });
-  } catch (error) {
-    console.error('Error fetching instructor:', error);
-    return new Response(JSON.stringify({ error: 'Errore nel recupero del docente' }), { status: 500 });
+    return new Response(JSON.stringify(instructors[0]), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  } catch (error: any) {
+    console.error('Get instructor error:', error);
+    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
 
-export const onRequestPut: PagesFunction = async (context) => {
-  const { request, env } = context;
-  const url = new URL(request.url);
-  const id = url.pathname.split('/').pop();
+// PUT - Aggiorna docente
+export const onRequestPut: PagesFunction<Env> = async (context) => {
+  const { request, env, params } = context;
+  const auth = context.data.auth as AuthContext;
+  const instructorId = parseInt(params.id as string);
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (isNaN(instructorId)) {
+    return new Response(JSON.stringify({ error: 'ID non valido' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   try {
-    const body = await request.json();
-    const db = env.DB as D1Database;
+    const body = await request.json() as any;
+    const db = drizzle(env.DB, { schema });
 
-    const { firstName, lastName, email, phone, hourlyRate, notes, status } = body;
-
-    await db
-      .prepare(
-        `UPDATE instructors 
-         SET firstName = ?, lastName = ?, email = ?, phone = ?, hourlyRate = ?, notes = ?, status = ?, updatedAt = ?
-         WHERE id = ?`
+    // Verifica che il docente esista e appartenga al cliente
+    const existing = await db.select()
+      .from(schema.instructors)
+      .where(
+        and(
+          eq(schema.instructors.id, instructorId),
+          eq(schema.instructors.clientId, auth.clientId)
+        )
       )
-      .bind(firstName, lastName, email, phone, hourlyRate, notes, status, new Date().toISOString(), id)
-      .run();
+      .limit(1);
 
-    const updated = await db
-      .prepare('SELECT * FROM instructors WHERE id = ?')
-      .bind(id)
-      .first();
+    if (existing.length === 0) {
+      return new Response(JSON.stringify({ error: 'Docente non trovato' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    return new Response(JSON.stringify(updated), { status: 200 });
-  } catch (error) {
-    console.error('Error updating instructor:', error);
-    return new Response(JSON.stringify({ error: 'Errore nell\'aggiornamento del docente' }), { status: 500 });
+    // Aggiorna
+    await db.update(schema.instructors)
+      .set({
+        firstName: body.firstName ?? existing[0].firstName,
+        lastName: body.lastName ?? existing[0].lastName,
+        email: body.email !== undefined ? (body.email || null) : existing[0].email,
+        phone: body.phone !== undefined ? (body.phone || null) : existing[0].phone,
+        specialization: body.specialization !== undefined ? (body.specialization || null) : existing[0].specialization,
+        hourlyRate: body.hourlyRate !== undefined ? (body.hourlyRate || null) : existing[0].hourlyRate,
+        notes: body.notes !== undefined ? (body.notes || null) : existing[0].notes,
+        bio: body.bio !== undefined ? (body.bio || null) : existing[0].bio,
+        isActive: body.isActive !== undefined ? body.isActive : existing[0].isActive,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.instructors.id, instructorId));
+
+    // Ritorna il docente aggiornato
+    const updated = await db.select()
+      .from(schema.instructors)
+      .where(eq(schema.instructors.id, instructorId))
+      .limit(1);
+
+    return new Response(JSON.stringify(updated[0]), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  } catch (error: any) {
+    console.error('Update instructor error:', error);
+    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
 
-export const onRequestDelete: PagesFunction = async (context) => {
-  const { env } = context;
-  const url = new URL(context.request.url);
-  const id = url.pathname.split('/').pop();
+// DELETE - Elimina docente
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  const { env, params } = context;
+  const auth = context.data.auth as AuthContext;
+  const instructorId = parseInt(params.id as string);
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (isNaN(instructorId)) {
+    return new Response(JSON.stringify({ error: 'ID non valido' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   try {
-    const db = env.DB as D1Database;
+    const db = drizzle(env.DB, { schema });
 
-    await db
-      .prepare('DELETE FROM instructors WHERE id = ?')
-      .bind(id)
-      .run();
+    // Verifica che il docente esista e appartenga al cliente
+    const existing = await db.select()
+      .from(schema.instructors)
+      .where(
+        and(
+          eq(schema.instructors.id, instructorId),
+          eq(schema.instructors.clientId, auth.clientId)
+        )
+      )
+      .limit(1);
 
-    return new Response(JSON.stringify({ success: true }), { status: 200 });
-  } catch (error) {
-    console.error('Error deleting instructor:', error);
-    return new Response(JSON.stringify({ error: 'Errore nell\'eliminazione del docente' }), { status: 500 });
+    if (existing.length === 0) {
+      return new Response(JSON.stringify({ error: 'Docente non trovato' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Elimina
+    await db.delete(schema.instructors)
+      .where(eq(schema.instructors.id, instructorId));
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  } catch (error: any) {
+    console.error('Delete instructor error:', error);
+    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
