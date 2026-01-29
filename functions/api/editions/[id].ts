@@ -202,7 +202,6 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         customPrice: body.customPrice !== undefined ? body.customPrice : existing[0].customPrice,
         dedicatedCompanyId: body.dedicatedCompanyId !== undefined ? body.dedicatedCompanyId : existing[0].dedicatedCompanyId,
         instructorId: body.instructorId !== undefined ? body.instructorId : existing[0].instructorId,
-        instructor: body.instructor !== undefined ? body.instructor : existing[0].instructor,
         status: body.status ?? existing[0].status,
         editionType: body.editionType ?? existing[0].editionType,
         updatedAt: new Date().toISOString(),
