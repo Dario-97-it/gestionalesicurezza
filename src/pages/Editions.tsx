@@ -67,7 +67,7 @@ export default function EditionsImproved() {
   const [formData, setFormData] = useState({
     courseId: '',
     instructorId: '',
-    editionType: 'public' as 'public' | 'private' | 'multi',
+    editionType: 'private' as 'private' | 'multi',
     dedicatedCompanyId: '',
     startDate: '',
     endDate: '',
@@ -182,7 +182,7 @@ export default function EditionsImproved() {
     setFormData({
       courseId: '',
       instructorId: '',
-      editionType: 'public',
+      editionType: 'private',
       dedicatedCompanyId: '',
       startDate: '',
       endDate: '',
@@ -202,7 +202,7 @@ export default function EditionsImproved() {
     setFormData({
       courseId: String(edition.courseId || ''),
       instructorId: String(edition.instructorId || ''),
-      editionType: (edition as any).editionType || 'public',
+      editionType: (edition as any).editionType || 'private',
       dedicatedCompanyId: String((edition as any).dedicatedCompanyId || ''),
       startDate: edition.startDate || '',
       endDate: edition.endDate || '',
@@ -633,10 +633,9 @@ export default function EditionsImproved() {
               <select
                 required
                 value={formData.editionType}
-                onChange={(e) => setFormData({ ...formData, editionType: e.target.value as 'public' | 'private' | 'multi' })}
+                onChange={(e) => setFormData({ ...formData, editionType: e.target.value as 'private' | 'multi' })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
-                <option value="public">🌍 Pubblica</option>
                 <option value="private">🔒 Privata (Azienda Singola)</option>
                 <option value="multi">🏢 Multi-azienda</option>
               </select>
