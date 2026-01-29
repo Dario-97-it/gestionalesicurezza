@@ -1,14 +1,12 @@
 /**
  * API Instructor by ID - Gestione singolo docente
- * GET /api/instructors/:id - Ottieni docente
+ * GET /api/instructors/:id - Ottieni docente con storico corsi e statistiche
  * PUT /api/instructors/:id - Aggiorna docente
  * DELETE /api/instructors/:id - Elimina docente
- * 
- * Rebuild trigger: v2
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
 
 interface Env {
@@ -22,15 +20,11 @@ interface AuthContext {
   role: string;
 }
 
-// GET - Ottieni docente
+// GET - Ottieni docente con storico corsi e statistiche
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, params } = context;
-  console.log('GET /api/instructors/[id] - params:', params);
-  console.log('GET /api/instructors/[id] - context.data:', context.data);
   const auth = context.data.auth as AuthContext;
-  console.log('GET /api/instructors/[id] - auth:', auth);
   const instructorId = parseInt(params.id as string);
-  console.log('GET /api/instructors/[id] - instructorId:', instructorId);
 
   if (!auth) {
     return new Response(JSON.stringify({ error: 'Non autenticato' }), {
@@ -49,6 +43,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const db = drizzle(env.DB, { schema });
 
+    // Recupera il docente
     const instructors = await db.select()
       .from(schema.instructors)
       .where(
@@ -66,7 +61,93 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       });
     }
 
-    return new Response(JSON.stringify(instructors[0]), {
+    // Recupera le edizioni corsi insegnate da questo docente
+    const editions = await db.select({
+      id: schema.courseEditions.id,
+      courseId: schema.courseEditions.courseId,
+      courseName: schema.courses.title,
+      durationHours: schema.courses.durationHours,
+      startDate: schema.courseEditions.startDate,
+      endDate: schema.courseEditions.endDate,
+      location: schema.courseEditions.location,
+      price: schema.courseEditions.price,
+      status: schema.courseEditions.status,
+    })
+      .from(schema.courseEditions)
+      .innerJoin(schema.courses, eq(schema.courseEditions.courseId, schema.courses.id))
+      .where(
+        and(
+          eq(schema.courseEditions.instructorId, instructorId),
+          eq(schema.courseEditions.clientId, auth.clientId)
+        )
+      );
+
+    // Per ogni edizione, recupera le registrazioni e le statistiche
+    const courseHistory = [];
+    for (const edition of editions) {
+      const registrations = await db.select()
+        .from(schema.registrations)
+        .where(
+          and(
+            eq(schema.registrations.courseEditionId, edition.id),
+            eq(schema.registrations.clientId, auth.clientId)
+          )
+        );
+
+      // Raggruppa per azienda
+      const byCompany: Record<number, { companyId: number; totalPrice: number; studentCount: number }> = {};
+      for (const reg of registrations) {
+        const companyId = reg.companyId || 0;
+        if (!byCompany[companyId]) {
+          byCompany[companyId] = { companyId, totalPrice: 0, studentCount: 0 };
+        }
+        byCompany[companyId].totalPrice += reg.priceApplied || 0;
+        byCompany[companyId].studentCount += 1;
+      }
+
+      // Recupera i nomi delle aziende
+      const companyIds = Object.keys(byCompany).map(Number).filter(id => id !== 0);
+      const companies = companyIds.length > 0
+        ? await db.select({ id: schema.companies.id, name: schema.companies.name })
+            .from(schema.companies)
+            .where(inArray(schema.companies.id, companyIds))
+        : [];
+
+      const companiesMap = Object.fromEntries(companies.map(c => [c.id, c.name]));
+
+      courseHistory.push({
+        editionId: edition.id,
+        courseName: edition.courseName,
+        durationHours: edition.durationHours,
+        startDate: edition.startDate,
+        endDate: edition.endDate,
+        location: edition.location,
+        price: edition.price,
+        status: edition.status,
+        totalStudents: registrations.length,
+        byCompany: Object.values(byCompany).map(item => ({
+          ...item,
+          companyName: item.companyId === 0 ? 'Privato' : companiesMap[item.companyId] || 'Sconosciuto',
+        })),
+        totalRevenue: Object.values(byCompany).reduce((sum, item) => sum + item.totalPrice, 0),
+      });
+    }
+
+    // Calcola statistiche totali
+    const totalStudents = courseHistory.reduce((sum, course) => sum + course.totalStudents, 0);
+    const totalRevenue = courseHistory.reduce((sum, course) => sum + course.totalRevenue, 0);
+    const totalHours = courseHistory.reduce((sum, course) => sum + course.durationHours, 0);
+
+    return new Response(JSON.stringify({
+      ...instructors[0],
+      courseHistory,
+      statistics: {
+        totalCourses: courseHistory.length,
+        totalStudents,
+        totalRevenue,
+        totalHours,
+      },
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -85,12 +166,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 // PUT - Aggiorna docente
 export const onRequestPut: PagesFunction<Env> = async (context) => {
   const { request, env, params } = context;
-  console.log('PUT /api/instructors/[id] - params:', params);
-  console.log('PUT /api/instructors/[id] - context.data:', context.data);
   const auth = context.data.auth as AuthContext;
-  console.log('PUT /api/instructors/[id] - auth:', auth);
   const instructorId = parseInt(params.id as string);
-  console.log('PUT /api/instructors/[id] - instructorId:', instructorId);
 
   if (!auth) {
     return new Response(JSON.stringify({ error: 'Non autenticato' }), {
@@ -139,7 +216,6 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         hourlyRate: body.hourlyRate !== undefined ? (body.hourlyRate || null) : existing[0].hourlyRate,
         notes: body.notes !== undefined ? (body.notes || null) : existing[0].notes,
         bio: body.bio !== undefined ? (body.bio || null) : existing[0].bio,
-        isActive: body.isActive !== undefined ? body.isActive : existing[0].isActive,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.instructors.id, instructorId));

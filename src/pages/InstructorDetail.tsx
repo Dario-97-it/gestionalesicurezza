@@ -5,30 +5,44 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, EmptyState } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
-import { ArrowLeftIcon, CalendarIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import type { Instructor } from '../types';
 
-interface CourseSession {
-  id: number;
-  courseTitle: string;
-  courseCode: string;
+interface CourseHistory {
   editionId: number;
+  courseName: string;
+  durationHours: number;
   startDate: string;
   endDate: string;
   location: string;
-  duration: number;
+  price: number;
   status: 'completed' | 'ongoing' | 'scheduled' | 'cancelled';
-  studentsCount: number;
+  totalStudents: number;
+  byCompany: Array<{
+    companyId: number;
+    companyName: string;
+    studentCount: number;
+    totalPrice: number;
+  }>;
+  totalRevenue: number;
+}
+
+interface InstructorWithHistory extends Instructor {
+  courseHistory?: CourseHistory[];
+  statistics?: {
+    totalCourses: number;
+    totalStudents: number;
+    totalRevenue: number;
+    totalHours: number;
+  };
 }
 
 export default function InstructorDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [instructor, setInstructor] = useState<Instructor | null>(null);
-  const [sessions, setSessions] = useState<CourseSession[]>([]);
+  const [instructor, setInstructor] = useState<InstructorWithHistory | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     fetchInstructor();
@@ -39,19 +53,16 @@ export default function InstructorDetail() {
       setLoading(true);
       const token = localStorage.getItem('accessToken');
       
-      // Fetch instructor
       const instructorResponse = await fetch(`/api/instructors/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      if (!instructorResponse.ok) {
+        throw new Error('Errore nel caricamento del docente');
+      }
+      
       const instructorData = await instructorResponse.json();
       setInstructor(instructorData);
-
-      // Fetch instructor's course sessions
-      const sessionsResponse = await fetch(`/api/instructors/${id}/sessions`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const sessionsData = await sessionsResponse.json();
-      setSessions(sessionsData.data || []);
     } catch (error) {
       console.error('Error fetching instructor:', error);
       toast.error('Errore nel caricamento dei dati');
@@ -75,59 +86,11 @@ export default function InstructorDetail() {
     }
   };
 
-  const handleSyncGoogleCalendar = async () => {
-    if (!instructor?.email) {
-      toast.error('Email del docente non disponibile');
-      return;
-    }
-
-    setIsSyncing(true);
-    try {
-      const token = localStorage.getItem('accessToken');
-      
-      const response = await fetch(`/api/instructors/${id}/sync-calendar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ email: instructor.email })
-      });
-
-      if (response.ok) {
-        toast.success('Sessioni sincronizzate con Google Calendar');
-      } else {
-        throw new Error('Errore sincronizzazione');
-      }
-    } catch (error) {
-      toast.error('Errore nella sincronizzazione con Google Calendar');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const handleDownloadICS = async () => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      
-      const response = await fetch(`/api/instructors/${id}/calendar.ics`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${instructor?.firstName}_${instructor?.lastName}_sessions.ics`;
-        link.click();
-        toast.success('File .ics scaricato');
-      } else {
-        throw new Error('Errore download');
-      }
-    } catch (error) {
-      toast.error('Errore nel download del file');
-    }
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('it-IT', {
+      style: 'currency',
+      currency: 'EUR',
+    }).format(value / 100);
   };
 
   if (loading) {
@@ -152,6 +115,9 @@ export default function InstructorDetail() {
       </Layout>
     );
   }
+
+  const courseHistory = instructor.courseHistory || [];
+  const stats = instructor.statistics || { totalCourses: 0, totalStudents: 0, totalRevenue: 0, totalHours: 0 };
 
   return (
     <Layout>
@@ -192,13 +158,9 @@ export default function InstructorDetail() {
                 <p className="text-gray-900">{instructor.specialization || '-'}</p>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-500">Stato</label>
+                <label className="text-sm font-medium text-gray-500">Tariffa Oraria</label>
                 <p className="text-gray-900">
-                  {instructor.isActive ? (
-                    <Badge variant="success">Attivo</Badge>
-                  ) : (
-                    <Badge variant="secondary">Inattivo</Badge>
-                  )}
+                  {instructor.hourlyRate ? formatCurrency(instructor.hourlyRate) : '-'}
                 </p>
               </div>
             </div>
@@ -211,111 +173,124 @@ export default function InstructorDetail() {
           </CardContent>
         </Card>
 
-        {/* Sync Google Calendar */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Sincronizzazione Calendario</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Sincronizza le sessioni di questo docente con Google Calendar o scarica il file .ics.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={handleSyncGoogleCalendar}
-                disabled={isSyncing}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-              >
-                <CalendarIcon className="w-4 h-4" />
-                Sincronizza Google Calendar
-              </Button>
-              <Button
-                onClick={handleDownloadICS}
-                variant="secondary"
-                className="flex items-center gap-2"
-              >
-                <EnvelopeIcon className="w-4 h-4" />
-                Scarica .ics
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Course Sessions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Storico Corsi Tenuti</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sessions.length === 0 ? (
-              <EmptyState
-                title="Nessuna sessione trovata"
-                description="Questo docente non ha ancora tenuto alcuna sessione"
-              />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Corso</TableHead>
-                    <TableHead>Data Inizio</TableHead>
-                    <TableHead>Data Fine</TableHead>
-                    <TableHead>Luogo</TableHead>
-                    <TableHead>Ore</TableHead>
-                    <TableHead>Studenti</TableHead>
-                    <TableHead>Stato</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sessions.map((session) => (
-                    <TableRow key={session.id}>
-                      <TableCell className="font-medium">{session.courseTitle}</TableCell>
-                      <TableCell>{new Date(session.startDate).toLocaleDateString('it-IT')}</TableCell>
-                      <TableCell>{new Date(session.endDate).toLocaleDateString('it-IT')}</TableCell>
-                      <TableCell>{session.location || '-'}</TableCell>
-                      <TableCell>{session.duration}h</TableCell>
-                      <TableCell>{session.studentsCount}</TableCell>
-                      <TableCell>{getStatusBadge(session.status)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Stats */}
-        {sessions.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Statistics */}
+        {stats.totalCourses > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-blue-600">{sessions.length}</p>
-                  <p className="text-sm text-gray-600">Sessioni Totali</p>
+                  <p className="text-3xl font-bold text-blue-600">{stats.totalCourses}</p>
+                  <p className="text-sm text-gray-600">Corsi Tenuti</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-green-600">
-                    {sessions.filter(s => s.status === 'completed').length}
-                  </p>
-                  <p className="text-sm text-gray-600">Completate</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-orange-600">
-                    {sessions.reduce((sum, s) => sum + s.studentsCount, 0)}
-                  </p>
+                  <p className="text-3xl font-bold text-green-600">{stats.totalStudents}</p>
                   <p className="text-sm text-gray-600">Studenti Totali</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-purple-600">{stats.totalHours}h</p>
+                  <p className="text-sm text-gray-600">Ore Insegnate</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-orange-600">{formatCurrency(stats.totalRevenue)}</p>
+                  <p className="text-sm text-gray-600">Incasso Totale</p>
                 </div>
               </CardContent>
             </Card>
           </div>
         )}
+
+        {/* Course History */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Storico Corsi Tenuti</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {courseHistory.length === 0 ? (
+              <EmptyState
+                title="Nessun corso trovato"
+                description="Questo docente non ha ancora tenuto alcun corso"
+              />
+            ) : (
+              <div className="space-y-6">
+                {courseHistory.map((course) => (
+                  <div key={course.editionId} className="border rounded-lg p-4 space-y-4">
+                    {/* Course Header */}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{course.courseName}</h3>
+                        <p className="text-sm text-gray-600">
+                          {new Date(course.startDate).toLocaleDateString('it-IT')} - {new Date(course.endDate).toLocaleDateString('it-IT')} • {course.location}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(course.status)}
+                      </div>
+                    </div>
+
+                    {/* Course Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Ore</p>
+                        <p className="font-semibold text-gray-900">{course.durationHours}h</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Studenti</p>
+                        <p className="font-semibold text-gray-900">{course.totalStudents}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Prezzo Unitario</p>
+                        <p className="font-semibold text-gray-900">{formatCurrency(course.price)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Incasso Totale</p>
+                        <p className="font-semibold text-green-600">{formatCurrency(course.totalRevenue)}</p>
+                      </div>
+                    </div>
+
+                    {/* By Company Table */}
+                    {course.byCompany.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-2">Dettaglio per Azienda</p>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Azienda</TableHead>
+                              <TableHead className="text-right">Studenti</TableHead>
+                              <TableHead className="text-right">Importo Totale</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {course.byCompany.map((company) => (
+                              <TableRow key={company.companyId}>
+                                <TableCell className="font-medium">{company.companyName}</TableCell>
+                                <TableCell className="text-right">{company.studentCount}</TableCell>
+                                <TableCell className="text-right font-semibold text-green-600">
+                                  {formatCurrency(company.totalPrice)}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );
