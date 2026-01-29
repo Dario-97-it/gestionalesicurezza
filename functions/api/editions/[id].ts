@@ -201,12 +201,16 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       .where(eq(schema.courseEditions.id, editionId));
 
     // Se ci sono aziende selezionate, aggiorna la tabella editionCompanyPrices
-    if (body.selectedCompanies && Array.isArray(body.selectedCompanies)) {
+    console.log('selectedCompanies:', body.selectedCompanies);
+    if (body.selectedCompanies && Array.isArray(body.selectedCompanies) && body.selectedCompanies.length > 0) {
+      console.log('Deleting existing company prices for edition:', editionId);
       await db.delete(schema.editionCompanyPrices)
         .where(eq(schema.editionCompanyPrices.editionId, editionId));
 
+      console.log('Inserting new company prices');
       for (const companyId of body.selectedCompanies) {
         const price = body.companyPrices?.[companyId] ? Math.round(parseFloat(body.companyPrices[companyId]) * 100) : existing[0].price;
+        console.log(`Inserting price for company ${companyId}: ${price}`);
         await db.insert(schema.editionCompanyPrices).values({
           clientId: auth.clientId,
           editionId: editionId,
@@ -214,6 +218,8 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
           price: price,
         });
       }
+    } else {
+      console.log('No companies selected or empty array');
     }
 
     return new Response(JSON.stringify({ success: true }), {
@@ -223,7 +229,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Update edition error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    return new Response(JSON.stringify({ error: error.message || 'Errore interno del server' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
