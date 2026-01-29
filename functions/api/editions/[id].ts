@@ -55,7 +55,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       price: schema.courseEditions.price,
       customPrice: schema.courseEditions.customPrice,
       dedicatedCompanyId: schema.courseEditions.dedicatedCompanyId,
-      instructor: schema.courseEditions.instructor,
       status: schema.courseEditions.status,
       createdAt: schema.courseEditions.createdAt,
       courseTitle: schema.courses.title,
