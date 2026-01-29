@@ -84,6 +84,7 @@ export default function EditionsImproved() {
   const [selectedAgents, setSelectedAgents] = useState<number[]>([]);
   const [agentPrices, setAgentPrices] = useState<Record<number, string>>({});
   const [showAgentSelection, setShowAgentSelection] = useState(false);
+  const [typeChangeError, setTypeChangeError] = useState<string | null>(null);
 
   const statusOptions = [
     { value: 'scheduled', label: 'Programmata', color: 'bg-blue-100 text-blue-700', icon: '📅' },
@@ -212,6 +213,7 @@ export default function EditionsImproved() {
       status: edition.status || 'scheduled',
       notes: edition.notes || '',
     });
+    setTypeChangeError(null);
     setIsModalOpen(true);
   };
 
@@ -633,12 +635,35 @@ export default function EditionsImproved() {
               <select
                 required
                 value={formData.editionType}
-                onChange={(e) => setFormData({ ...formData, editionType: e.target.value as 'private' | 'multi' })}
+                onChange={(e) => {
+                  const newType = e.target.value as 'private' | 'multi';
+                  const currentType = selectedEdition ? ((selectedEdition as any).editionType || 'private') : 'private';
+                  const registrationsCount = (selectedEdition as any)?.registrationsCount || 0;
+                  
+                  // Verifica se si sta cercando di cambiare da Multi-azienda a Privata con registrazioni
+                  if (currentType === 'multi' && newType === 'private' && registrationsCount > 0) {
+                    setTypeChangeError(
+                      `Non puoi cambiare il tipo da "Multi-azienda" a "Privata" perché questa edizione ha ${registrationsCount} iscritti. ` +
+                      `Puoi solo passare da "Privata" a "Multi-azienda" o modificare un'edizione "Multi-azienda" senza iscritti.`
+                    );
+                    return;
+                  }
+                  
+                  setTypeChangeError(null);
+                  setFormData({ ...formData, editionType: newType });
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="private">🔒 Privata (Azienda Singola)</option>
                 <option value="multi">🏢 Multi-azienda</option>
               </select>
+              {typeChangeError && (
+                <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">
+                    <span className="font-semibold">⚠️ Operazione non consentita:</span> {typeChangeError}
+                  </p>
+                </div>
+              )}
             </div>
             {formData.editionType === 'private' && (
               <div>
