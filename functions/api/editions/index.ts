@@ -109,7 +109,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       
       return {
         ...edition,
-        enrolledCount: Number(enrolledResult[0]?.count || 0),
+        registrationsCount: Number(enrolledResult[0]?.count || 0),
       };
     }));
 
