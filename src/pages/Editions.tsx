@@ -130,8 +130,11 @@ export default function EditionsImproved() {
   }, [pagination.pageSize, statusFilter, courseFilter, typeFilter, searchTerm, sortBy]);
 
   useEffect(() => {
-    fetchEditions();
-  }, []);
+    if (sortBy) {
+      setPagination(prev => ({ ...prev, page: 1 }));
+      fetchEditions(1);
+    }
+  }, [sortBy]);
 
   useEffect(() => {
     const loadData = async () => {
