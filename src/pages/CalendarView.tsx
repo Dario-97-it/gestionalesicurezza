@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '../components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -11,6 +12,7 @@ import itLocale from '@fullcalendar/core/locales/it';
 import { editionsApi, coursesApi } from '../lib/api';
 import type { CourseEdition, Course } from '../types';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 interface CalendarEvent {
   id: string;
@@ -50,6 +52,18 @@ export default function CalendarView() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [viewMode, setViewMode] = useState<'dayGridMonth' | 'timeGridWeek' | 'listMonth'>('dayGridMonth');
+  const [isCreateSessionModalOpen, setIsCreateSessionModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [isSavingSession, setIsSavingSession] = useState(false);
+  const [createSessionForm, setCreateSessionForm] = useState({
+    editionId: '',
+    sessionDate: '',
+    startTime: '09:00',
+    endTime: '13:00',
+    hours: 4,
+    location: '',
+    notes: ''
+  });
 
   // Colori per i diversi corsi
   const courseColors = [
@@ -156,12 +170,70 @@ export default function CalendarView() {
   };
 
   const handleDateClick = (info: any) => {
-    // Potrebbe essere usato per creare nuove sessioni
-    console.log('Date clicked:', info.dateStr);
+    setSelectedDate(info.dateStr);
+    setCreateSessionForm({
+      ...createSessionForm,
+      sessionDate: info.dateStr
+    });
+    setIsCreateSessionModalOpen(true);
   };
 
   const closeEventModal = () => {
     setSelectedEvent(null);
+  };
+
+  const closeCreateSessionModal = () => {
+    setIsCreateSessionModalOpen(false);
+    setCreateSessionForm({
+      editionId: '',
+      sessionDate: '',
+      startTime: '09:00',
+      endTime: '13:00',
+      hours: 4,
+      location: '',
+      notes: ''
+    });
+  };
+
+  const handleCreateSession = async () => {
+    if (!createSessionForm.editionId || !createSessionForm.sessionDate) {
+      toast.error('Compila i campi obbligatori');
+      return;
+    }
+
+    setIsSavingSession(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/editions/${createSessionForm.editionId}/sessions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sessionDate: createSessionForm.sessionDate,
+          startTime: createSessionForm.startTime,
+          endTime: createSessionForm.endTime,
+          hours: parseInt(createSessionForm.hours.toString()),
+          location: createSessionForm.location,
+          notes: createSessionForm.notes
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Sessione creata con successo');
+        closeCreateSessionModal();
+        fetchData(); // Ricarica i dati
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Errore nella creazione della sessione');
+      }
+    } catch (error) {
+      console.error('Error creating session:', error);
+      toast.error('Errore nella creazione della sessione');
+    } finally {
+      setIsSavingSession(false);
+    }
   };
 
   const goToAttendances = () => {
@@ -310,67 +382,143 @@ export default function CalendarView() {
         {selectedEvent && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-              <div 
-                className="p-4 rounded-t-lg"
-                style={{ backgroundColor: selectedEvent.backgroundColor }}
-              >
-                <h3 className="text-lg font-semibold text-white">{selectedEvent.title}</h3>
-              </div>
               <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Data:</span>
-                    <p className="font-medium">
-                      {new Date(selectedEvent.start).toLocaleDateString('it-IT', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Orario:</span>
-                    <p className="font-medium">
-                      {new Date(selectedEvent.start).toLocaleTimeString('it-IT', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                      {' - '}
-                      {selectedEvent.end && new Date(selectedEvent.end).toLocaleTimeString('it-IT', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  </div>
-                  {selectedEvent.extendedProps.location && (
-                    <div className="col-span-2">
-                      <span className="text-gray-500">Luogo:</span>
-                      <p className="font-medium">{selectedEvent.extendedProps.location}</p>
-                    </div>
-                  )}
-                  {selectedEvent.extendedProps.instructor && (
-                    <div className="col-span-2">
-                      <span className="text-gray-500">Docente:</span>
-                      <p className="font-medium">{selectedEvent.extendedProps.instructor}</p>
-                    </div>
-                  )}
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedEvent.extendedProps.courseName}</h2>
+                  <p className="text-sm text-gray-600 mt-1">{selectedEvent.start} - {selectedEvent.end}</p>
                 </div>
-                <div className="flex gap-2 pt-4 border-t">
+                
+                {selectedEvent.extendedProps.location && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Luogo</p>
+                    <p className="text-gray-900">{selectedEvent.extendedProps.location}</p>
+                  </div>
+                )}
+                
+                {selectedEvent.extendedProps.instructor && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Docente</p>
+                    <p className="text-gray-900">{selectedEvent.extendedProps.instructor}</p>
+                  </div>
+                )}
+                
+                <div className="flex gap-2 pt-4">
                   <Button onClick={goToAttendances} className="flex-1">
-                    📋 Registro Presenze
+                    Presenze
                   </Button>
                   <Button onClick={goToEdition} variant="secondary" className="flex-1">
-                    📝 Dettagli Edizione
+                    Edizione
+                  </Button>
+                  <Button onClick={closeEventModal} variant="secondary" className="flex-1">
+                    Chiudi
                   </Button>
                 </div>
-                <Button onClick={closeEventModal} variant="secondary" className="w-full">
-                  Chiudi
-                </Button>
               </div>
             </div>
           </div>
         )}
+
+        {/* Create Session Modal */}
+        <Modal
+          isOpen={isCreateSessionModalOpen}
+          onClose={closeCreateSessionModal}
+          title="Crea Nuova Sessione"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Edizione Corso *</label>
+              <select
+                value={createSessionForm.editionId}
+                onChange={(e) => setCreateSessionForm({ ...createSessionForm, editionId: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Seleziona un'edizione</option>
+                {editions.map((edition) => {
+                  const course = courses.find(c => c.id === edition.courseId);
+                  return (
+                    <option key={edition.id} value={edition.id}>
+                      {course?.title} - {edition.startDate}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data Sessione *</label>
+              <input
+                type="date"
+                value={createSessionForm.sessionDate}
+                onChange={(e) => setCreateSessionForm({ ...createSessionForm, sessionDate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ora Inizio *</label>
+                <input
+                  type="time"
+                  value={createSessionForm.startTime}
+                  onChange={(e) => setCreateSessionForm({ ...createSessionForm, startTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ora Fine *</label>
+                <input
+                  type="time"
+                  value={createSessionForm.endTime}
+                  onChange={(e) => setCreateSessionForm({ ...createSessionForm, endTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ore *</label>
+              <input
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={createSessionForm.hours}
+                onChange={(e) => setCreateSessionForm({ ...createSessionForm, hours: parseFloat(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Luogo</label>
+              <input
+                type="text"
+                value={createSessionForm.location}
+                onChange={(e) => setCreateSessionForm({ ...createSessionForm, location: e.target.value })}
+                placeholder="Es. Aula Magna"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+              <textarea
+                value={createSessionForm.notes}
+                onChange={(e) => setCreateSessionForm({ ...createSessionForm, notes: e.target.value })}
+                placeholder="Note aggiuntive..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button onClick={handleCreateSession} isLoading={isSavingSession} className="flex-1">
+                Crea Sessione
+              </Button>
+              <Button onClick={closeCreateSessionModal} variant="secondary" className="flex-1">
+                Annulla
+              </Button>
+            </div>
+          </div>
+        </Modal>
       </div>
     </Layout>
   );
