@@ -23,8 +23,12 @@ interface AuthContext {
 // GET - Ottieni docente
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, params } = context;
+  console.log('GET /api/instructors/[id] - params:', params);
+  console.log('GET /api/instructors/[id] - context.data:', context.data);
   const auth = context.data.auth as AuthContext;
+  console.log('GET /api/instructors/[id] - auth:', auth);
   const instructorId = parseInt(params.id as string);
+  console.log('GET /api/instructors/[id] - instructorId:', instructorId);
 
   if (!auth) {
     return new Response(JSON.stringify({ error: 'Non autenticato' }), {
@@ -67,7 +71,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Get instructor error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    console.error('Get instructor error message:', error.message);
+    console.error('Get instructor error stack:', error.stack);
+    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -77,8 +83,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 // PUT - Aggiorna docente
 export const onRequestPut: PagesFunction<Env> = async (context) => {
   const { request, env, params } = context;
+  console.log('PUT /api/instructors/[id] - params:', params);
+  console.log('PUT /api/instructors/[id] - context.data:', context.data);
   const auth = context.data.auth as AuthContext;
+  console.log('PUT /api/instructors/[id] - auth:', auth);
   const instructorId = parseInt(params.id as string);
+  console.log('PUT /api/instructors/[id] - instructorId:', instructorId);
 
   if (!auth) {
     return new Response(JSON.stringify({ error: 'Non autenticato' }), {
@@ -145,7 +155,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Update instructor error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    console.error('Update instructor error message:', error.message);
+    console.error('Update instructor error stack:', error.stack);
+    return new Response(JSON.stringify({ error: 'Errore interno del server', details: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
