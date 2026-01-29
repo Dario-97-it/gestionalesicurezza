@@ -163,14 +163,13 @@ export default function Instructors() {
       return;
     }
 
-    const headers = ['Nome', 'Cognome', 'Email', 'Telefono', 'Specializzazione', 'Attivo'];
+    const headers = ['Nome', 'Cognome', 'Email', 'Telefono', 'Specializzazione'];
     const rows = instructors.map(i => [
       i.firstName || '',
       i.lastName || '',
       i.email || '',
       i.phone || '',
-      i.specialization || '',
-      i.isActive ? 'Sì' : 'No'
+      i.specialization || ''
     ]);
 
     const csvContent = [
@@ -261,7 +260,6 @@ export default function Instructors() {
                       <TableHead>Email</TableHead>
                       <TableHead>Telefono</TableHead>
                       <TableHead>Specializzazione</TableHead>
-                      <TableHead>Stato</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -273,11 +271,6 @@ export default function Instructors() {
                         <TableCell>{instructor.email || '-'}</TableCell>
                         <TableCell>{instructor.phone || '-'}</TableCell>
                         <TableCell>{instructor.specialization || '-'}</TableCell>
-                        <TableCell>
-                          <Badge variant={instructor.isActive ? 'success' : 'secondary'}>
-                            {instructor.isActive ? 'Attivo' : 'Inattivo'}
-                          </Badge>
-                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <button
@@ -387,18 +380,7 @@ export default function Instructors() {
               placeholder="Breve descrizione del docente..."
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stato</label>
-            <select
-              name="isActive"
-              value={formData.isActive}
-              onChange={(e) => setFormData({ ...formData, isActive: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="1">Attivo</option>
-              <option value="0">Inattivo</option>
-            </select>
-          </div>
+
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
               Annulla
