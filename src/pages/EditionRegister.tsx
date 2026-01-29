@@ -319,7 +319,7 @@ export default function EditionRegister() {
               📋 Registro Edizione
             </h1>
             <p className="text-gray-600 mt-1">
-              {(edition as any).courseTitle} ({(edition as any).courseCode}) - {formatDate(edition.startDate)}
+              {edition.course?.title} ({edition.course?.code}) - {formatDate(edition.startDate)}
             </p>
           </div>
           <div className="flex gap-2">
