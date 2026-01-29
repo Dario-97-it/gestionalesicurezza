@@ -236,12 +236,18 @@ export default function EditionsImproved() {
         price: Math.round(parseFloat(formData.price) * 100),
         status: formData.status,
         notes: formData.notes,
+        selectedCompanies: selectedCompanies,
+        companyPrices: companyPrices,
+        selectedAgents: selectedAgents,
+        agentPrices: agentPrices,
       };
 
       if (selectedEdition) {
+        console.log('Updating edition with data:', data);
         await editionsApi.update(selectedEdition.id, data);
         toast.success('Edizione aggiornata');
       } else {
+        console.log('Creating edition with data:', data);
         await editionsApi.create(data);
         toast.success('Edizione creata');
       }

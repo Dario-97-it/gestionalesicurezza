@@ -182,6 +182,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     }
 
     // Aggiorna
+    console.log('Updating edition with body:', body);
     await db.update(schema.courseEditions)
       .set({
         startDate: body.startDate ?? existing[0].startDate,
@@ -194,9 +195,25 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         instructorId: body.instructorId !== undefined ? body.instructorId : existing[0].instructorId,
         instructor: body.instructor !== undefined ? body.instructor : existing[0].instructor,
         status: body.status ?? existing[0].status,
+        editionType: body.editionType ?? existing[0].editionType,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.courseEditions.id, editionId));
+
+    // Se ci sono aziende selezionate, aggiorna la tabella editionCompanies
+    if (body.selectedCompanies && Array.isArray(body.selectedCompanies)) {
+      await db.delete(schema.editionCompanies)
+        .where(eq(schema.editionCompanies.editionId, editionId));
+
+      for (const companyId of body.selectedCompanies) {
+        const price = body.companyPrices?.[companyId] ? Math.round(parseFloat(body.companyPrices[companyId]) * 100) : existing[0].price;
+        await db.insert(schema.editionCompanies).values({
+          editionId: editionId,
+          companyId: companyId,
+          price: price,
+        });
+      }
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
