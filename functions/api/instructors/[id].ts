@@ -3,6 +3,8 @@
  * GET /api/instructors/:id - Ottieni docente
  * PUT /api/instructors/:id - Aggiorna docente
  * DELETE /api/instructors/:id - Elimina docente
+ * 
+ * Rebuild trigger: v2
  */
 
 import { drizzle } from 'drizzle-orm/d1';
