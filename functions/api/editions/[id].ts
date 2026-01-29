@@ -160,10 +160,18 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   }
 
   try {
+    console.log('PUT /api/editions/[id] - Start');
+    console.log('Edition ID:', editionId);
+    console.log('Auth:', auth);
+    
     const body = await request.json() as any;
+    console.log('Body parsed:', body);
+    
     const db = drizzle(env.DB, { schema });
+    console.log('DB initialized');
 
     // Verifica che l'edizione esista e appartenga al cliente
+    console.log('Fetching existing edition...');
     const existing = await db.select()
       .from(schema.courseEditions)
       .where(
@@ -174,6 +182,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       )
       .limit(1);
 
+    console.log('Existing edition found:', existing.length > 0);
     if (existing.length === 0) {
       return new Response(JSON.stringify({ error: 'Edizione non trovata' }), {
         status: 404,
