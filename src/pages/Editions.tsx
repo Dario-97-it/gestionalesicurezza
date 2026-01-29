@@ -137,6 +137,27 @@ export default function EditionsImproved() {
   }, [sortBy]);
 
   useEffect(() => {
+    if (courseFilter !== undefined) {
+      setPagination(prev => ({ ...prev, page: 1 }));
+      fetchEditions(1);
+    }
+  }, [courseFilter]);
+
+  useEffect(() => {
+    if (typeFilter !== undefined) {
+      setPagination(prev => ({ ...prev, page: 1 }));
+      fetchEditions(1);
+    }
+  }, [typeFilter]);
+
+  useEffect(() => {
+    if (statusFilter !== undefined) {
+      setPagination(prev => ({ ...prev, page: 1 }));
+      fetchEditions(1);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
     const loadData = async () => {
       try {
         const [coursesRes, instructorsRes, companiesRes, agentsRes] = await Promise.all([
