@@ -41,9 +41,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   }
 
   try {
+    console.log('GET /api/editions/[id] - Start');
+    console.log('Edition ID:', editionId);
+    
     const db = drizzle(env.DB, { schema });
 
-    // Ottieni edizione con info corso
+    // Ottieni edizione - seleziona SOLO i campi che esistono nel database
     const editions = await db.select({
       id: schema.courseEditions.id,
       courseId: schema.courseEditions.courseId,
@@ -54,7 +57,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       maxParticipants: schema.courseEditions.maxParticipants,
       price: schema.courseEditions.price,
       customPrice: schema.courseEditions.customPrice,
-      editionType: schema.courseEditions.editionType,
+      isDedicated: schema.courseEditions.isDedicated,
       dedicatedCompanyId: schema.courseEditions.dedicatedCompanyId,
       status: schema.courseEditions.status,
       createdAt: schema.courseEditions.createdAt,
@@ -81,6 +84,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     const edition = editions[0];
+    console.log('Edition found:', edition.id);
 
     // Ottieni iscritti
     const registrations = await db.select({
@@ -99,6 +103,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     .from(schema.registrations)
     .innerJoin(schema.students, eq(schema.registrations.studentId, schema.students.id))
     .where(eq(schema.registrations.courseEditionId, editionId));
+
+    console.log('Registrations found:', registrations.length);
 
     // Ottieni azienda dedicata se presente
     let dedicatedCompany = null;
@@ -120,8 +126,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       instructorData = instructors[0] || null;
     }
 
+    // Determina il tipo di edizione in base a isDedicated
+    const editionType = edition.isDedicated ? 'private' : 'multi';
+
     return new Response(JSON.stringify({
       ...edition,
+      editionType: editionType,
+      registrationsCount: registrations.length,
       registrations,
       dedicatedCompany,
       instructorData,
@@ -132,7 +143,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Get edition error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    return new Response(JSON.stringify({ error: error.message || 'Errore interno del server' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -162,7 +175,6 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
   try {
     console.log('PUT /api/editions/[id] - Start');
     console.log('Edition ID:', editionId);
-    console.log('Auth:', auth);
     
     const body = await request.json() as any;
     console.log('Body parsed:', body);
@@ -190,8 +202,12 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // Aggiorna
-    console.log('Updating edition with body:', body);
+    // Determina isDedicated in base al tipo di edizione
+    const isDedicated = body.editionType === 'private' ? true : false;
+    console.log('isDedicated:', isDedicated, 'editionType:', body.editionType);
+
+    // Aggiorna - usa SOLO i campi che esistono nel database
+    console.log('Updating edition...');
     await db.update(schema.courseEditions)
       .set({
         startDate: body.startDate ?? existing[0].startDate,
@@ -203,10 +219,12 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         dedicatedCompanyId: body.dedicatedCompanyId !== undefined ? body.dedicatedCompanyId : existing[0].dedicatedCompanyId,
         instructorId: body.instructorId !== undefined ? body.instructorId : existing[0].instructorId,
         status: body.status ?? existing[0].status,
-        editionType: body.editionType ?? existing[0].editionType,
+        isDedicated: isDedicated,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.courseEditions.id, editionId));
+
+    console.log('Edition updated successfully');
 
     // Se ci sono aziende selezionate, aggiorna la tabella editionCompanyPrices
     console.log('selectedCompanies:', body.selectedCompanies);

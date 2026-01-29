@@ -171,7 +171,6 @@ export const courseEditions = sqliteTable("courseEditions", {
   price: integer("price").notNull(),
   customPrice: integer("customPrice"), // Prezzo personalizzato
   status: text("status", { enum: ["scheduled", "ongoing", "completed", "cancelled"] }).default("scheduled").notNull(),
-  editionType: text("editionType", { enum: ["private", "multi"] }).default("private").notNull(),
   isDedicated: integer("isDedicated", { mode: "boolean" }).default(false),
   dedicatedCompanyId: integer("dedicatedCompanyId").references(() => companies.id, { onDelete: "set null" }),
   notes: text("notes"),
