@@ -200,14 +200,15 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       })
       .where(eq(schema.courseEditions.id, editionId));
 
-    // Se ci sono aziende selezionate, aggiorna la tabella editionCompanies
+    // Se ci sono aziende selezionate, aggiorna la tabella editionCompanyPrices
     if (body.selectedCompanies && Array.isArray(body.selectedCompanies)) {
-      await db.delete(schema.editionCompanies)
-        .where(eq(schema.editionCompanies.editionId, editionId));
+      await db.delete(schema.editionCompanyPrices)
+        .where(eq(schema.editionCompanyPrices.editionId, editionId));
 
       for (const companyId of body.selectedCompanies) {
         const price = body.companyPrices?.[companyId] ? Math.round(parseFloat(body.companyPrices[companyId]) * 100) : existing[0].price;
-        await db.insert(schema.editionCompanies).values({
+        await db.insert(schema.editionCompanyPrices).values({
+          clientId: auth.clientId,
           editionId: editionId,
           companyId: companyId,
           price: price,
