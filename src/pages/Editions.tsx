@@ -128,35 +128,35 @@ export default function EditionsImproved() {
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.pageSize, statusFilter, courseFilter, typeFilter, searchTerm, sortBy, fetchEditions]);
+  }, [pagination.pageSize, statusFilter, courseFilter, typeFilter, searchTerm, sortBy]);
 
   useEffect(() => {
     if (sortBy) {
       setPagination(prev => ({ ...prev, page: 1 }));
       fetchEditions(1);
     }
-  }, [sortBy, fetchEditions]);
+  }, [sortBy]);
 
   useEffect(() => {
     if (courseFilter !== undefined) {
       setPagination(prev => ({ ...prev, page: 1 }));
       fetchEditions(1);
     }
-  }, [courseFilter, fetchEditions]);
+  }, [courseFilter]);
 
   useEffect(() => {
     if (typeFilter !== undefined) {
       setPagination(prev => ({ ...prev, page: 1 }));
       fetchEditions(1);
     }
-  }, [typeFilter, fetchEditions]);
+  }, [typeFilter]);
 
   useEffect(() => {
     if (statusFilter !== undefined) {
       setPagination(prev => ({ ...prev, page: 1 }));
       fetchEditions(1);
     }
-  }, [statusFilter, fetchEditions]);
+  }, [statusFilter]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -178,7 +178,7 @@ export default function EditionsImproved() {
     loadData();
     // Fetch iniziale edizioni
     fetchEditions(1);
-  }, []);
+  }, [fetchEditions]);
 
   // Polling automatico per aggiornare il numero di iscritti ogni 5 secondi
   useEffect(() => {
