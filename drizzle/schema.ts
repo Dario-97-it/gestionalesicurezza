@@ -91,8 +91,11 @@ export const instructors = sqliteTable("instructors", {
   lastName: text("lastName").notNull(),
   email: text("email"),
   phone: text("phone"),
+  specialization: text("specialization"),
   hourlyRate: integer("hourlyRate"),
+  bio: text("bio"),
   notes: text("notes"),
+  isActive: integer("isActive").default(1),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
 }, (table) => ({
