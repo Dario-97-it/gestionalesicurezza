@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -21,6 +21,8 @@ import {
   TrashIcon,
   EyeIcon,
   EnvelopeIcon,
+  MagnifyingGlassIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline';
 
 interface Session {
@@ -85,6 +87,10 @@ export default function EditionsImproved() {
   const [agentPrices, setAgentPrices] = useState<Record<number, string>>({});
   const [showAgentSelection, setShowAgentSelection] = useState(false);
   const [typeChangeError, setTypeChangeError] = useState<string | null>(null);
+  
+  // Nuovi stati per ricerca e filtri
+  const [companySearchTerm, setCompanySearchTerm] = useState('');
+  const [agentSearchTerm, setAgentSearchTerm] = useState('');
 
   const statusOptions = [
     { value: 'scheduled', label: 'Programmata', color: 'bg-blue-100 text-blue-700', icon: '📅' },
@@ -99,94 +105,121 @@ export default function EditionsImproved() {
     { value: 'multi', label: 'Multi-azienda', color: 'bg-orange-100 text-orange-700', icon: '🏢' },
   ];
 
-  const fetchEditions = useCallback(async (page = 1) => {
+  // Filtra aziende in base alla ricerca
+  const filteredCompanies = companies.filter(company =>
+    company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+  );
+
+  // Filtra agenti in base alla ricerca
+  const filteredAgents = agents.filter(agent =>
+    agent.name.toLowerCase().includes(agentSearchTerm.toLowerCase())
+  );
+
+  // Seleziona/deseleziona tutte le aziende filtrate
+  const toggleAllCompanies = () => {
+    const filteredIds = filteredCompanies.map(c => c.id);
+    if (selectedCompanies.length === filteredCompanies.length && filteredCompanies.every(c => selectedCompanies.includes(c.id))) {
+      // Deseleziona tutte
+      setSelectedCompanies(selectedCompanies.filter(id => !filteredIds.includes(id)));
+    } else {
+      // Seleziona tutte
+      const newSelected = new Set(selectedCompanies);
+      filteredIds.forEach(id => newSelected.add(id));
+      setSelectedCompanies(Array.from(newSelected));
+    }
+  };
+
+  // Seleziona/deseleziona tutti gli agenti filtrati
+  const toggleAllAgents = () => {
+    const filteredIds = filteredAgents.map(a => a.id);
+    if (selectedAgents.length === filteredAgents.length && filteredAgents.every(a => selectedAgents.includes(a.id))) {
+      // Deseleziona tutte
+      setSelectedAgents(selectedAgents.filter(id => !filteredIds.includes(id)));
+    } else {
+      // Seleziona tutte
+      const newSelected = new Set(selectedAgents);
+      filteredIds.forEach(id => newSelected.add(id));
+      setSelectedAgents(Array.from(newSelected));
+    }
+  };
+
+  const allCompaniesSelected = filteredCompanies.length > 0 && 
+    filteredCompanies.every(c => selectedCompanies.includes(c.id));
+
+  const allAgentsSelected = filteredAgents.length > 0 && 
+    filteredAgents.every(a => selectedAgents.includes(a.id));
+
+  useEffect(() => {
+    fetchEditions();
+    fetchCourses();
+    fetchInstructors();
+    fetchCompanies();
+    fetchAgents();
+  }, []);
+
+  const fetchEditions = async (page = 1) => {
     setIsLoading(true);
-    setError(null);
     try {
-      const response = await editionsApi.getAll(page, pagination.pageSize, statusFilter || undefined, courseFilter, sortBy);
-      let filteredData = response.data || [];
-      if (typeFilter) {
-        filteredData = filteredData.filter((e: any) => e.editionType === typeFilter);
-      }
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        filteredData = filteredData.filter((e: any) => 
-          getCourseName(e.courseId).toLowerCase().includes(searchLower) ||
-          e.location?.toLowerCase().includes(searchLower)
-        );
-      }
-      setEditions(filteredData);
-      setPagination({
-        page: response.page || 1,
-        pageSize: response.pageSize || 20,
-        total: response.total || 0,
-        totalPages: response.totalPages || 0,
+      const response = await editionsApi.list({
+        page,
+        pageSize: pagination.pageSize,
+        courseId: courseFilter,
+        status: statusFilter,
+        startDateFrom: undefined,
+        startDateTo: undefined,
+        sortBy,
       });
+      setEditions(response.data);
+      setPagination({
+        page: response.page,
+        pageSize: response.pageSize,
+        total: response.total,
+        totalPages: response.totalPages,
+      });
+      setError(null);
     } catch (err: any) {
-      console.error('Error fetching editions:', err);
       setError('Errore nel caricamento delle edizioni');
+      console.error('Fetch editions error:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.pageSize, statusFilter, courseFilter, typeFilter, searchTerm, sortBy]);
+  };
 
-  useEffect(() => {
-    if (sortBy) {
-      setPagination(prev => ({ ...prev, page: 1 }));
-      fetchEditions(1);
+  const fetchCourses = async () => {
+    try {
+      const response = await coursesApi.list();
+      setCourses(response.data || []);
+    } catch (err) {
+      console.error('Fetch courses error:', err);
     }
-  }, [sortBy]);
+  };
 
-  useEffect(() => {
-    if (courseFilter !== undefined) {
-      setPagination(prev => ({ ...prev, page: 1 }));
-      fetchEditions(1);
+  const fetchInstructors = async () => {
+    try {
+      const response = await instructorsApi.list();
+      setInstructors(response.data || []);
+    } catch (err) {
+      console.error('Fetch instructors error:', err);
     }
-  }, [courseFilter]);
+  };
 
-  useEffect(() => {
-    if (typeFilter !== undefined) {
-      setPagination(prev => ({ ...prev, page: 1 }));
-      fetchEditions(1);
+  const fetchCompanies = async () => {
+    try {
+      const response = await companiesApi.list();
+      setCompanies(response.data || []);
+    } catch (err) {
+      console.error('Fetch companies error:', err);
     }
-  }, [typeFilter]);
+  };
 
-  useEffect(() => {
-    if (statusFilter !== undefined) {
-      setPagination(prev => ({ ...prev, page: 1 }));
-      fetchEditions(1);
+  const fetchAgents = async () => {
+    try {
+      const response = await agentsApi.list();
+      setAgents(response.data || []);
+    } catch (err) {
+      console.error('Fetch agents error:', err);
     }
-  }, [statusFilter]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [coursesRes, instructorsRes, companiesRes, agentsRes] = await Promise.all([
-          coursesApi.getAll(1, 100),
-          instructorsApi.getAll(1, 100),
-          companiesApi.getAll(1, 100),
-          agentsApi.getAll(1, 100),
-        ]);
-        setCourses(coursesRes.data || []);
-        setInstructors(instructorsRes.data || []);
-        setCompanies(companiesRes.data || []);
-        setAgents(agentsRes.data || []);
-      } catch (err) {
-        console.error('Error loading reference data:', err);
-      }
-    };
-    loadData();
-    // Fetch iniziale edizioni
-    fetchEditions(1);
-  }, [fetchEditions]);
-
-  // Polling automatico per aggiornare il numero di iscritti ogni 15 secondi
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchEditions(pagination.page);
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [pagination.page, fetchEditions]);
+  };
 
   const openCreateModal = () => {
     setSelectedEdition(null);
@@ -205,6 +238,8 @@ export default function EditionsImproved() {
     });
     setSelectedCompanies([]);
     setCompanyPrices({});
+    setCompanySearchTerm('');
+    setAgentSearchTerm('');
     setIsModalOpen(true);
   };
 
@@ -224,6 +259,8 @@ export default function EditionsImproved() {
       notes: edition.notes || '',
     });
     setTypeChangeError(null);
+    setCompanySearchTerm('');
+    setAgentSearchTerm('');
     setIsModalOpen(true);
   };
 
@@ -400,196 +437,115 @@ export default function EditionsImproved() {
               </div>
 
               {/* Filtri */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                >
-                  <option value="startDate-desc">📅 Data inizio (recente)</option>
-                  <option value="startDate-asc">📅 Data inizio (meno recente)</option>
-                  <option value="createdAt-desc">🕐 Data creazione (recente)</option>
-                  <option value="createdAt-asc">🕐 Data creazione (meno recente)</option>
-                </select>
-
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <select
                   value={courseFilter || ''}
-                  onChange={(e) => setCourseFilter(e.target.value ? Number(e.target.value) : undefined)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  onChange={(e) => setCourseFilter(e.target.value ? parseInt(e.target.value) : undefined)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">📖 Tutti i corsi</option>
+                  <option value="">Tutti i corsi</option>
                   {courses.map(course => (
                     <option key={course.id} value={course.id}>{course.title}</option>
                   ))}
                 </select>
 
                 <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">🎯 Tutti i tipi</option>
-                  {typeOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.icon} {option.label}</option>
+                  <option value="">Tutti gli stati</option>
+                  {statusOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
 
                 <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">📊 Tutti gli stati</option>
-                  {statusOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.icon} {option.label}</option>
-                  ))}
+                  <option value="startDate-desc">Data inizio (più recente)</option>
+                  <option value="startDate-asc">Data inizio (più vecchia)</option>
+                  <option value="createdAt-desc">Creazione (più recente)</option>
+                  <option value="createdAt-asc">Creazione (più vecchia)</option>
                 </select>
-
-                <button
-                  onClick={() => { 
-                    setSearchTerm('');
-                    setCourseFilter(undefined); 
-                    setStatusFilter(''); 
-                    setTypeFilter('');
-                    setSortBy('startDate-desc');
-                  }}
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  ↺ Reset
-                </button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Lista Edizioni */}
+        {/* Tabella Edizioni */}
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-              </div>
+              <div className="p-8 text-center text-gray-500">Caricamento...</div>
             ) : editions.length === 0 ? (
               <EmptyState
+                icon="📚"
                 title="Nessuna edizione trovata"
-                description="Inizia creando una nuova edizione di un corso"
-                action={<Button onClick={openCreateModal}>+ Nuova Edizione</Button>}
+                description="Crea la tua prima edizione per iniziare"
+                action={<Button onClick={openCreateModal}>Nuova Edizione</Button>}
               />
             ) : (
-              <div className="divide-y divide-gray-200">
-                {editions.map((edition) => (
-                  <div key={edition.id} className="hover:bg-gray-50 transition-colors">
-                    {/* Edition Card */}
-                    <div className="p-4 lg:p-6">
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        {/* Informazioni Principali */}
-                        <div className="flex-1 space-y-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-lg font-bold text-gray-900">
-                              {getCourseName(edition.courseId)}
-                            </h3>
-                            {getTypeBadge((edition as any).editionType || 'public')}
-                            {getStatusBadge(edition.status)}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Corso</TableHead>
+                      <TableHead>Data Inizio</TableHead>
+                      <TableHead>Docente</TableHead>
+                      <TableHead>Partecipanti</TableHead>
+                      <TableHead>Prezzo</TableHead>
+                      <TableHead>Stato</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Azioni</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {editions.map((edition) => (
+                      <TableRow key={edition.id}>
+                        <TableCell className="font-medium">{getCourseName(edition.courseId)}</TableCell>
+                        <TableCell>{formatDate(edition.startDate)}</TableCell>
+                        <TableCell>{getInstructorName(edition.instructorId)}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+                            <UserGroupIcon className="w-3 h-3" />
+                            {(edition as any).registrationsCount || 0} / {edition.maxParticipants}
+                          </span>
+                        </TableCell>
+                        <TableCell>{formatPrice(edition.price)}</TableCell>
+                        <TableCell>{getStatusBadge(edition.status)}</TableCell>
+                        <TableCell>{getTypeBadge((edition as any).editionType || 'private')}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => navigate(`/editions/${edition.id}/register`)}
+                              className="text-blue-600 hover:text-blue-700 p-1"
+                              title="Gestisci registrazioni"
+                            >
+                              <UserIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => openEditModal(edition)}
+                              className="text-gray-600 hover:text-gray-700 p-1"
+                              title="Modifica"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => openDeleteDialog(edition)}
+                              className="text-red-600 hover:text-red-700 p-1"
+                              title="Elimina"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
                           </div>
-
-                          {/* Dettagli in Grid */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <CalendarIcon className="w-4 h-4 text-blue-500" />
-                              <span>{formatDate(edition.startDate)} → {formatDate(edition.endDate)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <MapPinIcon className="w-4 h-4 text-red-500" />
-                              <span>{edition.location || 'Non specificato'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <UserGroupIcon className="w-4 h-4 text-green-500" />
-                              <span>{(edition as any).registrationsCount || 0}/{edition.maxParticipants} iscritti</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-gray-600">
-                              <UserIcon className="w-4 h-4 text-purple-500" />
-                              <span>{getInstructorName(edition.instructorId)}</span>
-                            </div>
-                          </div>
-
-                          {/* Prezzo e Azienda */}
-                          <div className="flex flex-wrap items-center gap-4 text-sm pt-2">
-                            <span className="font-semibold text-gray-900">💰 {formatPrice((edition as any).price)}</span>
-                            {(edition as any).editionType === 'private' && (edition as any).dedicatedCompanyId && (
-                              <span className="text-purple-600">🏢 Privata: {getCompanyName((edition as any).dedicatedCompanyId)}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Azioni */}
-                        <div className="flex flex-wrap lg:flex-col gap-2 lg:gap-1">
-                          <button
-                            onClick={() => navigate(`/editions/${edition.id}/register`)}
-                            className="flex items-center justify-center gap-2 px-3 py-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg text-sm font-medium transition-colors"
-                            title="Apri Registro Edizione"
-                          >
-                            <EyeIcon className="w-4 h-4" />
-                            <span className="hidden sm:inline">Registro</span>
-                          </button>
-                          <button
-                            onClick={() => openEditModal(edition)}
-                            className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-sm font-medium transition-colors"
-                            title="Modifica"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                            <span className="hidden sm:inline">Modifica</span>
-                          </button>
-                          <button
-                            onClick={() => openDeleteDialog(edition)}
-                            className="flex items-center justify-center gap-2 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors"
-                            title="Elimina"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                            <span className="hidden sm:inline">Elimina</span>
-                          </button>
-                          <button
-                            onClick={() => setExpandedEdition(expandedEdition === edition.id ? null : edition.id)}
-                            className="flex items-center justify-center px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                            title="Mostra/nascondi sessioni"
-                          >
-                            {expandedEdition === edition.id ? (
-                              <ChevronUpIcon className="w-4 h-4" />
-                            ) : (
-                              <ChevronDownIcon className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Sessioni Espandibili */}
-                      {expandedEdition === edition.id && (
-                        <div className="mt-4 pt-4 border-t">
-                          <div className="text-sm font-medium text-gray-900 mb-3">📆 Sessioni ({sessions.length})</div>
-                          {sessions.length === 0 ? (
-                            <p className="text-sm text-gray-500 text-center py-3">Nessuna sessione programmata</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {sessions.map((session) => (
-                                <div key={session.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg text-sm">
-                                  <div className="flex-1">
-                                    <span className="font-medium">{formatDate(session.sessionDate)}</span>
-                                    <span className="text-gray-600 ml-2">{session.startTime} - {session.endTime} ({session.hours}h)</span>
-                                  </div>
-                                  <button
-                                    onClick={() => {/* delete session */}}
-                                    className="text-red-600 hover:text-red-700 text-xs"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
           </CardContent>
@@ -610,9 +566,9 @@ export default function EditionsImproved() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={selectedEdition ? 'Modifica Edizione' : 'Nuova Edizione'}
-        size="lg"
+        size="xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 max-h-[80vh] overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Corso *</label>
@@ -722,83 +678,165 @@ export default function EditionsImproved() {
 
           {formData.editionType === 'multi' && (
             <div className="border-t pt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Aziende Partecipanti *</label>
-              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50">
-                {companies.map(company => (
-                  <div key={company.id} className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id={`company-${company.id}`}
-                      checked={selectedCompanies.includes(company.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedCompanies([...selectedCompanies, company.id]);
-                        } else {
-                          setSelectedCompanies(selectedCompanies.filter(id => id !== company.id));
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <label htmlFor={`company-${company.id}`} className="flex-1 cursor-pointer">
-                      <span className="font-medium">{company.name}</span>
-                    </label>
-                    {selectedCompanies.includes(company.id) && (
-                      <input
-                        type="number"
-                        placeholder="Prezzo €"
-                        value={companyPrices[company.id] || ''}
-                        onChange={(e) => setCompanyPrices({ ...companyPrices, [company.id]: e.target.value })}
-                        className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">🏢 Aziende Partecipanti *</label>
+                
+                {/* Barra di ricerca */}
+                <div className="relative mb-3">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Cerca azienda..."
+                    value={companySearchTerm}
+                    onChange={(e) => setCompanySearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
 
-          {formData.editionType === 'multi' && (
-            <div className="border-t pt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Agenti Partecipanti</label>
-              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50">
-                {agents.length === 0 ? (
-                  <p className="text-sm text-gray-500">Nessun agente disponibile</p>
-                ) : (
-                  agents.map(agent => (
-                    <div key={agent.id} className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id={`agent-${agent.id}`}
-                        checked={selectedAgents.includes(agent.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedAgents([...selectedAgents, agent.id]);
-                          } else {
-                            setSelectedAgents(selectedAgents.filter(id => id !== agent.id));
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <label htmlFor={`agent-${agent.id}`} className="flex-1 cursor-pointer">
-                        <span className="font-medium">{agent.name}</span>
-                      </label>
-                      {selectedAgents.includes(agent.id) && (
+                {/* Pulsante Seleziona Tutti */}
+                <div className="mb-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleAllCompanies}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      allCompaniesSelected
+                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <CheckIcon className="w-4 h-4" />
+                    {allCompaniesSelected ? 'Deseleziona Tutto' : 'Seleziona Tutto'}
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    {selectedCompanies.length} di {companies.length} selezionate
+                  </span>
+                </div>
+
+                {/* Lista aziende con checkbox */}
+                <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-4 bg-gray-50">
+                  {filteredCompanies.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">Nessuna azienda trovata</p>
+                  ) : (
+                    filteredCompanies.map(company => (
+                      <div key={company.id} className="flex items-center gap-3 p-2 hover:bg-white rounded-lg transition-colors">
                         <input
-                          type="number"
-                          placeholder="Prezzo €"
-                          value={agentPrices[agent.id] || ''}
-                          onChange={(e) => setAgentPrices({ ...agentPrices, [agent.id]: e.target.value })}
-                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                          type="checkbox"
+                          id={`company-${company.id}`}
+                          checked={selectedCompanies.includes(company.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedCompanies([...selectedCompanies, company.id]);
+                            } else {
+                              setSelectedCompanies(selectedCompanies.filter(id => id !== company.id));
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
-                      )}
-                    </div>
-                  ))
-                )}
+                        <label htmlFor={`company-${company.id}`} className="flex-1 cursor-pointer">
+                          <span className="font-medium text-gray-900">{company.name}</span>
+                          {company.vatNumber && (
+                            <span className="text-xs text-gray-500 ml-2">P.IVA: {company.vatNumber}</span>
+                          )}
+                        </label>
+                        {selectedCompanies.includes(company.id) && (
+                          <input
+                            type="number"
+                            placeholder="Prezzo €"
+                            value={companyPrices[company.id] || ''}
+                            onChange={(e) => setCompanyPrices({ ...companyPrices, [company.id]: e.target.value })}
+                            className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+                            step="0.01"
+                            min="0"
+                          />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {formData.editionType === 'multi' && agents.length > 0 && (
+            <div className="border-t pt-4">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">👤 Agenti Partecipanti</label>
+                
+                {/* Barra di ricerca */}
+                <div className="relative mb-3">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Cerca agente..."
+                    value={agentSearchTerm}
+                    onChange={(e) => setAgentSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Pulsante Seleziona Tutti */}
+                <div className="mb-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleAllAgents}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      allAgentsSelected
+                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <CheckIcon className="w-4 h-4" />
+                    {allAgentsSelected ? 'Deseleziona Tutto' : 'Seleziona Tutto'}
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    {selectedAgents.length} di {agents.length} selezionati
+                  </span>
+                </div>
+
+                {/* Lista agenti con checkbox */}
+                <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-4 bg-gray-50">
+                  {filteredAgents.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">Nessun agente trovato</p>
+                  ) : (
+                    filteredAgents.map(agent => (
+                      <div key={agent.id} className="flex items-center gap-3 p-2 hover:bg-white rounded-lg transition-colors">
+                        <input
+                          type="checkbox"
+                          id={`agent-${agent.id}`}
+                          checked={selectedAgents.includes(agent.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedAgents([...selectedAgents, agent.id]);
+                            } else {
+                              setSelectedAgents(selectedAgents.filter(id => id !== agent.id));
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <label htmlFor={`agent-${agent.id}`} className="flex-1 cursor-pointer">
+                          <span className="font-medium text-gray-900">{agent.name}</span>
+                          {agent.email && (
+                            <span className="text-xs text-gray-500 ml-2">{agent.email}</span>
+                          )}
+                        </label>
+                        {selectedAgents.includes(agent.id) && (
+                          <input
+                            type="number"
+                            placeholder="Prezzo €"
+                            value={agentPrices[agent.id] || ''}
+                            onChange={(e) => setAgentPrices({ ...agentPrices, [agent.id]: e.target.value })}
+                            className="w-28 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+                            step="0.01"
+                            min="0"
+                          />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
               <Input
@@ -816,9 +854,20 @@ export default function EditionsImproved() {
                 min="1"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prezzo Base (€)</label>
+              <Input
+                type="number"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+              />
+            </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
               Annulla
             </Button>
