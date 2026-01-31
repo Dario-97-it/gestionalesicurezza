@@ -8,8 +8,24 @@ interface Env {
   DB: D1Database;
 }
 
+interface AuthContext {
+  clientId: number;
+  userId: number;
+  email: string;
+  role: string;
+}
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env } = context;
+  const auth = context.data.auth as AuthContext;
+  
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Non autenticato' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  
   const db = env.DB;
   
   // Get today's date in YYYY-MM-DD format
@@ -32,9 +48,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       JOIN courseEditions ce ON ce.id = es.editionId
       JOIN courses c ON c.id = ce.courseId
       LEFT JOIN instructors i ON i.id = ce.instructorId
-      WHERE es.sessionDate = ?
+      WHERE es.sessionDate = ? AND es.clientId = ?
       ORDER BY es.startTime
-    `).bind(today).all();
+    `).bind(today, auth.clientId).all();
     return new Response(JSON.stringify({ sessions: sessions || [] }), {
       headers: { 'Content-Type': 'application/json' }
     });

@@ -127,6 +127,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    
+    if (!fiscalCode) {
+      return new Response(JSON.stringify({ error: 'Codice fiscale obbligatorio' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Validazione formato codice fiscale (16 caratteri)
+    if (fiscalCode && fiscalCode.length !== 16) {
+      return new Response(JSON.stringify({ error: 'Codice fiscale deve essere di 16 caratteri' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     const db = drizzle(env.DB, { schema });
 

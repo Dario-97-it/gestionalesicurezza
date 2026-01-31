@@ -180,11 +180,11 @@ export default function EditionsImproved() {
     fetchEditions(1);
   }, [fetchEditions]);
 
-  // Polling automatico per aggiornare il numero di iscritti ogni 5 secondi
+  // Polling automatico per aggiornare il numero di iscritti ogni 15 secondi
   useEffect(() => {
     const interval = setInterval(() => {
       fetchEditions(pagination.page);
-    }, 5000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [pagination.page, fetchEditions]);
 
@@ -236,6 +236,33 @@ export default function EditionsImproved() {
     e.preventDefault();
     setIsSaving(true);
     try {
+      // Validazioni client-side
+      if (!formData.courseId) {
+        toast.error('Seleziona un corso');
+        setIsSaving(false);
+        return;
+      }
+      if (!formData.startDate || !formData.endDate) {
+        toast.error('Le date di inizio e fine sono obbligatorie');
+        setIsSaving(false);
+        return;
+      }
+      if (formData.startDate >= formData.endDate) {
+        toast.error('La data di inizio deve essere prima della data di fine');
+        setIsSaving(false);
+        return;
+      }
+      if (!formData.maxParticipants || parseInt(formData.maxParticipants) <= 0) {
+        toast.error('Il numero massimo di partecipanti deve essere > 0');
+        setIsSaving(false);
+        return;
+      }
+      if (formData.editionType === 'private' && !formData.dedicatedCompanyId) {
+        toast.error('Un edizione privata deve avere un azienda dedicata');
+        setIsSaving(false);
+        return;
+      }
+      
       const data = {
         courseId: parseInt(formData.courseId),
         instructorId: formData.instructorId ? parseInt(formData.instructorId) : undefined,

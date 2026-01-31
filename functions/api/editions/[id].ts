@@ -205,6 +205,28 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     // Determina isDedicated in base al tipo di edizione
     const isDedicated = body.editionType === 'private' ? true : false;
     console.log('isDedicated:', isDedicated, 'editionType:', body.editionType);
+    
+    // Validazione: se isDedicated=true, dedicatedCompanyId deve essere fornito
+    if (isDedicated && !body.dedicatedCompanyId) {
+      return new Response(JSON.stringify({ 
+        error: 'Errore di validazione',
+        details: 'Un\'edizione privata deve avere un\'azienda dedicata'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Validazione: startDate < endDate
+    if (body.startDate && body.endDate && body.startDate >= body.endDate) {
+      return new Response(JSON.stringify({ 
+        error: 'Errore di validazione',
+        details: 'La data di inizio deve essere prima della data di fine'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     // Aggiorna - usa SOLO i campi che esistono nel database
     console.log('Updating edition...');

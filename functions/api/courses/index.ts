@@ -150,6 +150,27 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    
+    if (!durationHours || parseInt(String(durationHours)) <= 0) {
+      return new Response(JSON.stringify({ error: 'La durata del corso deve essere > 0' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    if (!defaultPrice || parseInt(String(defaultPrice)) < 0) {
+      return new Response(JSON.stringify({ error: 'Il prezzo non può essere negativo' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    if (certificateValidityMonths && parseInt(String(certificateValidityMonths)) <= 0) {
+      return new Response(JSON.stringify({ error: 'La validità certificato deve essere > 0' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     // Crea corso
     const now = new Date().toISOString();

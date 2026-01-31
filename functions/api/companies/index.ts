@@ -126,6 +126,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         headers: { 'Content-Type': 'application/json' },
       });
     }
+    
+    if (!vatNumber) {
+      return new Response(JSON.stringify({ error: 'P.IVA obbligatoria' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Validazione formato P.IVA (11 cifre)
+    if (vatNumber && !/^\d{11}$/.test(vatNumber)) {
+      return new Response(JSON.stringify({ error: 'P.IVA deve essere di 11 cifre' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     const db = drizzle(env.DB, { schema });
 

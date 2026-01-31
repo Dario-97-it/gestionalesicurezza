@@ -148,6 +148,33 @@ export default function Services() {
     e.preventDefault();
     setIsSaving(true);
     try {
+      // Validazioni client-side
+      if (!formData.title.trim()) {
+        setMessage({ type: 'error', text: 'Il titolo è obbligatorio' });
+        setIsSaving(false);
+        return;
+      }
+      if (!formData.code.trim()) {
+        setMessage({ type: 'error', text: 'Il codice è obbligatorio' });
+        setIsSaving(false);
+        return;
+      }
+      if (!formData.durationHours || Number(formData.durationHours) <= 0) {
+        setMessage({ type: 'error', text: 'La durata deve essere > 0' });
+        setIsSaving(false);
+        return;
+      }
+      if (!formData.defaultPrice || Number(formData.defaultPrice) < 0) {
+        setMessage({ type: 'error', text: 'Il prezzo non può essere negativo' });
+        setIsSaving(false);
+        return;
+      }
+      if (formData.certificateValidityMonths && Number(formData.certificateValidityMonths) <= 0) {
+        setMessage({ type: 'error', text: 'La validità certificato deve essere > 0' });
+        setIsSaving(false);
+        return;
+      }
+      
       const data = {
         title: formData.title,
         code: formData.code,

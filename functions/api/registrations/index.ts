@@ -195,6 +195,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         errors.push({ studentId, error: 'Studente non trovato' });
         continue;
       }
+      
+      // Verifica che lo studente sia attivo
+      if (!student[0].isActive) {
+        errors.push({ studentId, error: 'Studente disattivato' });
+        continue;
+      }
 
       // Verifica che non sia già iscritto
       const existing = await db.select()

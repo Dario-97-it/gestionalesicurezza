@@ -123,6 +123,7 @@ export const students = sqliteTable("students", {
   riskLevel: text("riskLevel", { enum: ["low", "medium", "high"] }).default("low"), // Livello Rischio per 81/08
   atecoCode: text("atecoCode"),
   agentId: integer("agentId").references(() => agents.id, { onDelete: "set null" }),
+  isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(), // Nuovo campo per disattivare studenti
   notes: text("notes"),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
@@ -163,7 +164,7 @@ export const courseEditions = sqliteTable("courseEditions", {
   courseId: integer("courseId").notNull().references(() => courses.id, { onDelete: "cascade" }),
   startDate: text("startDate").notNull(),
   endDate: text("endDate").notNull(),
-  location: text("location").notNull(),
+  location: text("location"), // Reso nullable - può essere 'Da definire'
   instructorId: integer("instructorId").references(() => instructors.id, { onDelete: "set null" }),
   instructor: text("instructor"), // Nome docente testuale (alternativo a instructorId)
   maxParticipants: integer("maxParticipants").notNull(),
@@ -173,6 +174,7 @@ export const courseEditions = sqliteTable("courseEditions", {
   status: text("status", { enum: ["scheduled", "ongoing", "completed", "cancelled"] }).default("scheduled").notNull(),
   isDedicated: integer("isDedicated", { mode: "boolean" }).default(false),
   dedicatedCompanyId: integer("dedicatedCompanyId").references(() => companies.id, { onDelete: "set null" }),
+  isActive: integer("isActive", { mode: "boolean" }).default(true).notNull(), // Nuovo campo per disattivare edizioni
   notes: text("notes"),
   createdAt: text("createdAt").notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updatedAt").notNull().$defaultFn(() => new Date().toISOString()),
@@ -206,6 +208,7 @@ export const registrations = sqliteTable("registrations", {
   status: text("status", { enum: ["pending", "confirmed", "completed", "failed", "cancelled"] }).default("pending").notNull(), // Aggiunto 'failed'
   priceApplied: integer("priceApplied").notNull(),
   certificateDate: text("certificateDate"), // Data rilascio attestato
+  attendancePercent: integer("attendancePercent"), // Percentuale di presenze
   notes: text("notes"),
   invoiceId: text("invoiceId"),
   invoiceStatus: text("invoiceStatus", { enum: ["none", "draft", "sent", "paid", "partial"] }).default("none"),
