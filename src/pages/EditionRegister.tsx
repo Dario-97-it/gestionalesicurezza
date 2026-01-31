@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { Checkbox } from '../components/ui/Checkbox';
 import { editionsApi, studentsApi, companiesApi, registrationsApi, agentsApi } from '../lib/api';
 import type { CourseEdition, Student, Company } from '../types';
 import toast from 'react-hot-toast';
+import { MagnifyingGlassIcon, CheckIcon } from '@heroicons/react/24/outline';
 
 interface Registration {
   id: number;
@@ -44,6 +46,8 @@ export default function EditionRegister() {
   const [selectedAgentFilter, setSelectedAgentFilter] = useState<number | ''>('');
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [studentPrices, setStudentPrices] = useState<Record<number, string>>({});
   
   // Statistiche
   const [stats, setStats] = useState({
@@ -84,6 +88,7 @@ export default function EditionRegister() {
         studentsApi.getAll(1, 500),
         agentsApi.getAll(1, 500)
       ]);
+      
       // Filter companies based on edition type
       let filteredCompanies = companiesRes.data || [];
       if (editionData.editionType === 'private' && editionData.dedicatedCompanyId) {
@@ -106,7 +111,7 @@ export default function EditionRegister() {
     fetchEditionData();
   }, [fetchEditionData]);
 
-  // Filter students by company or agent
+  // Filter students by company, agent, and search term
   useEffect(() => {
     let filtered = students;
     
@@ -118,8 +123,25 @@ export default function EditionRegister() {
       filtered = filtered.filter(s => s.agentId === selectedAgentFilter);
     }
     
+    if (studentSearchTerm) {
+      filtered = filtered.filter(s => 
+        `${s.firstName} ${s.lastName}`.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+        s.fiscalCode?.toLowerCase().includes(studentSearchTerm.toLowerCase())
+      );
+    }
+    
     setFilteredStudents(filtered);
-  }, [selectedCompanyFilter, selectedAgentFilter, students]);
+  }, [selectedCompanyFilter, selectedAgentFilter, studentSearchTerm, students]);
+
+  // Pre-carica studenti in base alle aziende dell'edizione
+  useEffect(() => {
+    if (edition && (edition as any).editionType === 'multi' && companies.length > 0 && isAddModalOpen) {
+      // Se è multi-azienda, pre-carica gli studenti delle aziende selezionate
+      const companiesIds = companies.map(c => c.id);
+      const preloadedStudents = students.filter(s => companiesIds.includes(s.companyId || 0));
+      setFilteredStudents(preloadedStudents);
+    }
+  }, [edition, companies, students, isAddModalOpen]);
 
   const calculateStats = (regs: Registration[]) => {
     const byCompany: Record<number, { name: string; count: number; passed: number; failed: number }> = {};
@@ -167,7 +189,8 @@ export default function EditionRegister() {
         body: JSON.stringify({
           courseEditionId: parseInt(id!),
           studentIds: selectedStudents,
-          priceApplied: edition?.price || 0
+          priceApplied: edition?.price || 0,
+          studentPrices: studentPrices // Prezzi personalizzati per singolo studente
         })
       });
 
@@ -179,6 +202,8 @@ export default function EditionRegister() {
       toast.success(`${result.created} studenti iscritti con successo`);
       setIsAddModalOpen(false);
       setSelectedStudents([]);
+      setStudentPrices({});
+      setStudentSearchTerm('');
       fetchEditionData();
     } catch (err) {
       toast.error('Errore nell\'iscrizione degli studenti');
@@ -198,8 +223,7 @@ export default function EditionRegister() {
         body: JSON.stringify({
           status: newStatus,
           certificateDate: certificateDate || null,
-          // Se bocciato, suggerisci la prossima edizione
-          recommendedNextEditionId: newStatus === 'failed' ? null : undefined // TODO: trovare prossima edizione
+          recommendedNextEditionId: newStatus === 'failed' ? null : undefined
         })
       });
 
@@ -247,6 +271,10 @@ export default function EditionRegister() {
     setSelectedStudents(available.map(s => s.id));
   };
 
+  const deselectAll = () => {
+    setSelectedStudents([]);
+  };
+
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(cents / 100);
   };
@@ -277,6 +305,11 @@ export default function EditionRegister() {
     };
     return labels[status] || status;
   };
+
+  const alreadyRegisteredIds = registrations.map(r => r.studentId);
+  const availableStudents = filteredStudents.filter(s => !alreadyRegisteredIds.includes(s.id));
+  const allAvailableSelected = availableStudents.length > 0 && 
+    availableStudents.every(s => selectedStudents.includes(s.id));
 
   if (isLoading) {
     return (
@@ -407,6 +440,7 @@ export default function EditionRegister() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Azienda</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Discente</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Codice Fiscale</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Prezzo Discente</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Stato</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Data Attestato</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Azioni</th>
@@ -415,7 +449,7 @@ export default function EditionRegister() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {registrations.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                         Nessuno studente iscritto. Clicca "Aggiungi Studenti" per iniziare.
                       </td>
                     </tr>
@@ -431,6 +465,9 @@ export default function EditionRegister() {
                         </td>
                         <td className="px-4 py-3 text-sm font-mono text-gray-600">
                           {reg.student?.fiscalCode || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm font-medium text-blue-600">
+                          {formatPrice(reg.priceApplied)}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(reg.status)}`}>
@@ -487,12 +524,17 @@ export default function EditionRegister() {
       {/* Modal Aggiungi Studenti */}
       <Modal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setStudentSearchTerm('');
+          setSelectedStudents([]);
+          setStudentPrices({});
+        }}
         title="Aggiungi Studenti all'Edizione"
-        size="lg"
+        size="xl"
       >
-        <div className="space-y-4">
-          {/* Filtro per Azienda */}
+        <div className="space-y-4 max-h-[80vh] overflow-y-auto">
+          {/* Filtri */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Filtra per Azienda</label>
@@ -522,51 +564,99 @@ export default function EditionRegister() {
             </div>
           </div>
 
+          {/* Ricerca Studenti */}
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Cerca per nome o codice fiscale..."
+              value={studentSearchTerm}
+              onChange={(e) => setStudentSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
           {/* Azioni rapide */}
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={selectAllFiltered}>
-              Seleziona Tutti ({filteredStudents.filter(s => !registrations.map(r => r.studentId).includes(s.id)).length})
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => setSelectedStudents([])}>
-              Deseleziona Tutti
-            </Button>
+          <div className="flex gap-2 items-center">
+            <button
+              type="button"
+              onClick={selectAllFiltered}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                allAvailableSelected
+                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <CheckIcon className="w-4 h-4" />
+              {allAvailableSelected ? 'Deseleziona Tutto' : 'Seleziona Tutto'}
+            </button>
+            {selectedStudents.length > 0 && (
+              <button
+                type="button"
+                onClick={deselectAll}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              >
+                Deseleziona Tutti
+              </button>
+            )}
+            <span className="text-sm text-gray-600 ml-auto">
+              {selectedStudents.length} / {availableStudents.length} selezionati
+            </span>
           </div>
 
           {/* Lista Studenti */}
-          <div className="max-h-96 overflow-y-auto border rounded-lg">
+          <div className="max-h-96 overflow-y-auto border rounded-lg bg-gray-50">
             {filteredStudents.length === 0 ? (
               <p className="p-4 text-center text-gray-500">Nessuno studente trovato</p>
             ) : (
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0">
+                <thead className="bg-gray-100 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Sel.</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Nome</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Azienda</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Sel.</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Nome</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">Azienda</th>
+                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-600">Prezzo €</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredStudents.map(student => {
                     const isAlreadyRegistered = registrations.some(r => r.studentId === student.id);
+                    const isSelected = selectedStudents.includes(student.id);
                     return (
                       <tr 
                         key={student.id} 
-                        className={isAlreadyRegistered ? 'bg-gray-100 opacity-50' : 'hover:bg-blue-50 cursor-pointer'}
+                        className={isAlreadyRegistered ? 'bg-gray-100 opacity-50' : isSelected ? 'bg-blue-50' : 'hover:bg-white'}
                         onClick={() => !isAlreadyRegistered && toggleStudentSelection(student.id)}
                       >
                         <td className="px-4 py-2">
                           <Checkbox
-                            checked={selectedStudents.includes(student.id)}
+                            checked={isSelected}
                             onChange={() => toggleStudentSelection(student.id)}
                             disabled={isAlreadyRegistered}
                           />
                         </td>
                         <td className="px-4 py-2 text-sm">
-                          {student.firstName} {student.lastName}
+                          <div className="font-medium text-gray-900">{student.firstName} {student.lastName}</div>
+                          {student.fiscalCode && (
+                            <div className="text-xs text-gray-500">{student.fiscalCode}</div>
+                          )}
                           {isAlreadyRegistered && <span className="ml-2 text-xs text-gray-500">(già iscritto)</span>}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-600">
                           {companies.find(c => c.id === student.companyId)?.name || '-'}
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {isSelected && !isAlreadyRegistered && (
+                            <input
+                              type="number"
+                              placeholder="Prezzo"
+                              value={studentPrices[student.id] || ''}
+                              onChange={(e) => setStudentPrices({ ...studentPrices, [student.id]: e.target.value })}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+                              step="0.01"
+                              min="0"
+                            />
+                          )}
                         </td>
                       </tr>
                     );
