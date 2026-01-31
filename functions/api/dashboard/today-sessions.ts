@@ -4,6 +4,11 @@
  * 
  * Returns all course sessions scheduled for today.
  */
+
+import { drizzle } from 'drizzle-orm/d1';
+import { eq, and } from 'drizzle-orm';
+import * as schema from '../../../drizzle/schema';
+
 interface Env {
   DB: D1Database;
 }
@@ -26,37 +31,52 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
   }
   
-  const db = env.DB;
-  
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split('T')[0];
   try {
-    const { results: sessions } = await db.prepare(`
-      SELECT 
-        es.id,
-        es.sessionDate,
-        es.startTime,
-        es.endTime,
-        es.hours,
-        es.location,
-        ce.id as editionId,
-        c.title as courseTitle,
-        c.code as courseCode,
-        i.firstName as instructorFirstName,
-        i.lastName as instructorLastName
-      FROM editionSessions es
-      JOIN courseEditions ce ON ce.id = es.editionId
-      JOIN courses c ON c.id = ce.courseId
-      LEFT JOIN instructors i ON i.id = ce.instructorId
-      WHERE es.sessionDate = ? AND es.clientId = ?
-      ORDER BY es.startTime
-    `).bind(today, auth.clientId).all();
-    return new Response(JSON.stringify({ sessions: sessions || [] }), {
+    const db = drizzle(env.DB, { schema });
+    
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Query usando Drizzle ORM
+    const sessions = await db.select({
+      id: schema.editionSessions.id,
+      sessionDate: schema.editionSessions.sessionDate,
+      startTime: schema.editionSessions.startTime,
+      endTime: schema.editionSessions.endTime,
+      hours: schema.editionSessions.hours,
+      location: schema.editionSessions.location,
+      editionId: schema.courseEditions.id,
+      courseTitle: schema.courses.title,
+      courseCode: schema.courses.code,
+      instructorFirstName: schema.instructors.firstName,
+      instructorLastName: schema.instructors.lastName,
+    })
+    .from(schema.editionSessions)
+    .innerJoin(schema.courseEditions, eq(schema.courseEditions.id, schema.editionSessions.editionId))
+    .innerJoin(schema.courses, eq(schema.courses.id, schema.courseEditions.courseId))
+    .leftJoin(schema.instructors, eq(schema.instructors.id, schema.courseEditions.instructorId))
+    .where(
+      and(
+        eq(schema.editionSessions.sessionDate, today),
+        eq(schema.courseEditions.clientId, auth.clientId)
+      )
+    )
+    .orderBy(schema.editionSessions.startTime);
+    
+    return new Response(JSON.stringify({ 
+      sessions: sessions || [],
+      date: today
+    }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (error: any) {
     console.error('Error fetching today sessions:', error);
-    return new Response(JSON.stringify({ error: 'Errore nel recupero delle sessioni di oggi', details: error.message }), {
+    console.error('Error message:', error.message);
+    return new Response(JSON.stringify({ 
+      error: 'Errore nel recupero delle sessioni di oggi',
+      details: error.message
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

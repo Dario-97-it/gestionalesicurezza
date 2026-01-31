@@ -5,9 +5,8 @@
  */
 
 import { drizzle } from 'drizzle-orm/d1';
-import { eq, like, or, asc, and, sql } from 'drizzle-orm';
+import { eq, like, or, asc, and, sql, count } from 'drizzle-orm';
 import * as schema from '../../../drizzle/schema';
-import { leftJoin } from 'drizzle-orm';
 
 interface Env {
   DB: D1Database;
@@ -60,36 +59,44 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       conditions.push(eq(schema.students.companyId, parseInt(companyId)));
     }
 
-    // Query studenti with agent info
-    const students = await db.select({
-      student: schema.students,
-      agent: schema.agents,
-    })
+    // Get total count FIRST
+    const countResult = await db.select({ count: count() })
       .from(schema.students)
-      .leftJoin(schema.agents, eq(schema.students.agentId, schema.agents.id))
+      .where(and(...conditions));
+    const total = countResult[0]?.count || 0;
+
+    // Query studenti - SEMPLIFICATO senza leftJoin per evitare errori
+    const students = await db.select()
+      .from(schema.students)
       .where(and(...conditions))
       .orderBy(asc(schema.students.lastName), asc(schema.students.firstName))
       .limit(pageSize)
       .offset(offset);
-    
-    // Transform to include agent info in student object
-    const studentsWithAgent = students.map(row => ({
-      ...row.student,
-      agent: row.agent ? { id: row.agent.id, name: row.agent.name } : null,
+
+    // Se serve info agente, fai query separate
+    const studentsWithAgent = await Promise.all(students.map(async (student) => {
+      let agent = null;
+      if (student.agentId) {
+        const agentResult = await db.select()
+          .from(schema.agents)
+          .where(eq(schema.agents.id, student.agentId))
+          .limit(1);
+        agent = agentResult[0] ? { id: agentResult[0].id, name: agentResult[0].name } : null;
+      }
+      return {
+        ...student,
+        agent,
+      };
     }));
 
-    // Count totale
-    const countResult = await db.select({ count: sql<number>`count(*)` })
-      .from(schema.students)
-      .where(and(...conditions));
-    const total = Number(countResult[0]?.count || 0);
+    const totalPages = Math.ceil(total / pageSize);
 
     return new Response(JSON.stringify({
       data: studentsWithAgent,
       total,
       page,
       pageSize,
-      totalPages: Math.ceil(total / pageSize),
+      totalPages,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -102,7 +109,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return new Response(JSON.stringify({ 
       error: 'Errore interno del server',
       details: error.message,
-      stack: error.stack
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -218,20 +224,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const now = new Date().toISOString();
     const result = await db.insert(schema.students).values({
       clientId: auth.clientId,
-      firstName,
-      lastName,
-      fiscalCode: fiscalCode?.toUpperCase() || null,
-      email: email || null,
-      phone: phone || null,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      fiscalCode: fiscalCode.toUpperCase(),
+      email: email ? email.trim() : null,
+      phone: phone ? phone.trim() : null,
       birthDate: birthDate || null,
-      birthPlace: birthPlace || null,
-      address: address || null,
-      companyId: companyId || null,
-      agentId: agentId || null,
-      jobTitle: jobTitle || null,
-      jobRole: jobRole || 'altro',
-      riskLevel: riskLevel || 'low',
-      atecoCode: atecoCode || null,
+      birthPlace: birthPlace ? birthPlace.trim() : null,
+      address: address ? address.trim() : null,
+      companyId: companyId ? parseInt(String(companyId)) : null,
+      agentId: agentId ? parseInt(String(agentId)) : null,
+      jobTitle: jobTitle ? jobTitle.trim() : null,
+      jobRole: jobRole ? jobRole.trim() : null,
+      riskLevel: riskLevel || null,
+      atecoCode: atecoCode ? atecoCode.trim() : null,
+      isActive: true,
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.students.id });
@@ -246,7 +253,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Create student error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    console.error('Error message:', error.message);
+    return new Response(JSON.stringify({ 
+      error: 'Errore nel salvataggio dello studente',
+      details: error.message
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
