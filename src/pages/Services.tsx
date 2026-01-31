@@ -671,6 +671,3 @@ export default function Services() {
     </Layout>
   );
 }
-    </Layout>
-  );
-}
