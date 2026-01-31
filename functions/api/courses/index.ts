@@ -87,7 +87,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('List courses error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    return new Response(JSON.stringify({ 
+      error: 'Errore interno del server',
+      details: error.message
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -172,7 +177,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   } catch (error: any) {
     console.error('Create course error:', error);
-    return new Response(JSON.stringify({ error: 'Errore interno del server' }), {
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    return new Response(JSON.stringify({ 
+      error: 'Errore interno del server',
+      details: error.message,
+      stack: error.stack
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
