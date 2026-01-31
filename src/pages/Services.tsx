@@ -562,9 +562,6 @@ export default function Services() {
         confirmText="Elimina"
         isLoading={isSaving}
       />
-    </Layout>
-  );
-}
 
       {/* Course Details Modal */}
       <Modal
@@ -671,6 +668,9 @@ export default function Services() {
           </Button>
         </div>
       </Modal>
+    </Layout>
+  );
+}
     </Layout>
   );
 }
