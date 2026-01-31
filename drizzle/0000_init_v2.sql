@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS courses (
   type TEXT,
   durationHours INTEGER NOT NULL,
   defaultPrice INTEGER NOT NULL,
-  certificateValidityMonths INTEGER NOT NULL,
+  certificateValidityMonths INTEGER,
   description TEXT,
   isActive INTEGER DEFAULT 1 NOT NULL,
   createdAt TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
