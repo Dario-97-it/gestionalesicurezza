@@ -112,8 +112,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
 
   try {
+    console.log('POST /api/courses - Request received');
     const body = await request.json() as any;
+    console.log('Request body:', JSON.stringify(body));
     const { title, code, type, durationHours, defaultPrice, description, certificateValidityMonths, isActive } = body;
+    console.log('Extracted fields:', { title, code, type, durationHours, defaultPrice, description, certificateValidityMonths, isActive });
 
     // Validazione
     if (!title || !code) {
@@ -174,6 +177,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // Crea corso
     const now = new Date().toISOString();
+    console.log('Inserting course with values:', {
+      clientId: auth.clientId,
+      title: title.trim(),
+      code: code.trim().toUpperCase(),
+      type: type,
+      durationHours: parseInt(String(durationHours)) || 0,
+      defaultPrice: parseInt(String(defaultPrice)) || 0,
+      description: description ? description.trim() : null,
+      certificateValidityMonths: certificateValidityMonths ? parseInt(String(certificateValidityMonths)) : null,
+      isActive: isActive === true || isActive === 1 || isActive === 'true',
+      createdAt: now,
+      updatedAt: now,
+    });
     const result = await db.insert(schema.courses).values({
       clientId: auth.clientId,
       title: title.trim(),
@@ -201,6 +217,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
     console.error('Error details:', JSON.stringify(error, null, 2));
+    console.error('Full error object:', error);
     return new Response(JSON.stringify({ 
       error: 'Errore interno del server',
       details: error.message,
