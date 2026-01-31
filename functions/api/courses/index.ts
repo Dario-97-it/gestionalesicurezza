@@ -130,10 +130,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // Verifica che il cliente esista
     console.log('Checking if client exists with clientId:', auth.clientId);
-    const clientExists = await db.select()
-      .from(schema.clients)
-      .where(eq(schema.clients.id, auth.clientId))
-      .limit(1);
+    let clientExists: any[] = [];
+    try {
+      clientExists = await db.select()
+        .from(schema.clients)
+        .where(eq(schema.clients.id, auth.clientId))
+        .limit(1);
+      console.log('Client query result:', clientExists);
+    } catch (queryError: any) {
+      console.error('Error querying clients table:', queryError.message);
+      console.error('Query error details:', queryError);
+      return new Response(JSON.stringify({ 
+        error: 'Errore nel database',
+        details: 'Impossibile verificare il cliente',
+        queryError: queryError.message
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     
     if (clientExists.length === 0) {
       console.error('Client not found:', auth.clientId);
@@ -206,7 +221,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       createdAt: now,
       updatedAt: now,
     });
-    const result = await db.insert(schema.courses).values({
+    
+    let result: any;
+    try {
+      result = await db.insert(schema.courses).values({
       clientId: auth.clientId,
       title: title.trim(),
       code: code.trim().toUpperCase(),
@@ -219,6 +237,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       createdAt: now,
       updatedAt: now,
     }).returning({ id: schema.courses.id });
+      console.log('Course created successfully:', result);
+    } catch (insertError: any) {
+      console.error('Error inserting course:', insertError.message);
+      console.error('Insert error details:', insertError);
+      return new Response(JSON.stringify({ 
+        error: 'Errore nel salvataggio del corso',
+        details: insertError.message,
+        code: insertError.code
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
     return new Response(JSON.stringify({
       success: true,
