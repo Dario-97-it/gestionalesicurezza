@@ -144,7 +144,7 @@ export const courses = sqliteTable("courses", {
   durationHours: integer("durationHours").notNull(),
   defaultPrice: integer("defaultPrice").notNull(),
   certificateValidityMonths: integer("certificateValidityMonths"), // Validità corso in mesi (facoltativo)
-  minRiskLevel: text("minRiskLevel", { enum: ["low", "medium", "high"] }), // Livello rischio minimo richiesto
+
   hasPrerequisite: integer("hasPrerequisite", { mode: "boolean" }).default(false), // Se richiede corso prerequisito
   prerequisiteCourseId: integer("prerequisiteCourseId").references(() => courses.id, { onDelete: "set null" }), // Corso prerequisito
   description: text("description"),
