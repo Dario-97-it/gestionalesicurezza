@@ -671,3 +671,6 @@ export default function Services() {
           </Button>
         </div>
       </Modal>
+    </Layout>
+  );
+}
