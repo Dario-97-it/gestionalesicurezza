@@ -128,6 +128,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const db = drizzle(env.DB, { schema });
 
+    // Verifica che il cliente esista
+    console.log('Checking if client exists with clientId:', auth.clientId);
+    const clientExists = await db.select()
+      .from(schema.clients)
+      .where(eq(schema.clients.id, auth.clientId))
+      .limit(1);
+    
+    if (clientExists.length === 0) {
+      console.error('Client not found:', auth.clientId);
+      return new Response(JSON.stringify({ error: 'Cliente non trovato nel database' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    console.log('Client found:', clientExists[0]);
+
     // Verifica codice unico per questo cliente
     const existing = await db.select()
       .from(schema.courses)
