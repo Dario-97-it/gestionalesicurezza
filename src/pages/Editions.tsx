@@ -160,15 +160,13 @@ export default function EditionsImproved() {
   const fetchEditions = async (page = 1) => {
     setIsLoading(true);
     try {
-      const response = await editionsApi.list({
+      const response = await editionsApi.getAll(
         page,
-        pageSize: pagination.pageSize,
-        courseId: courseFilter,
-        status: statusFilter,
-        startDateFrom: undefined,
-        startDateTo: undefined,
-        sortBy,
-      });
+        pagination.pageSize,
+        statusFilter,
+        courseFilter,
+        sortBy
+      );
       setEditions(response.data);
       setPagination({
         page: response.page,
@@ -187,7 +185,7 @@ export default function EditionsImproved() {
 
   const fetchCourses = async () => {
     try {
-      const response = await coursesApi.list();
+      const response = await coursesApi.getAll();
       setCourses(response.data || []);
     } catch (err) {
       console.error('Fetch courses error:', err);
@@ -196,7 +194,7 @@ export default function EditionsImproved() {
 
   const fetchInstructors = async () => {
     try {
-      const response = await instructorsApi.list();
+      const response = await instructorsApi.getAll();
       setInstructors(response.data || []);
     } catch (err) {
       console.error('Fetch instructors error:', err);
@@ -205,7 +203,7 @@ export default function EditionsImproved() {
 
   const fetchCompanies = async () => {
     try {
-      const response = await companiesApi.list();
+      const response = await companiesApi.getAll();
       setCompanies(response.data || []);
     } catch (err) {
       console.error('Fetch companies error:', err);
@@ -214,7 +212,7 @@ export default function EditionsImproved() {
 
   const fetchAgents = async () => {
     try {
-      const response = await agentsApi.list();
+      const response = await agentsApi.getAll();
       setAgents(response.data || []);
     } catch (err) {
       console.error('Fetch agents error:', err);
